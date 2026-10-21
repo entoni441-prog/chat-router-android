@@ -134,15 +134,24 @@ class RouterServer(private val context: Context) {
             result.put("provider_package", provider.packageName)
             result.put("exported", provider.exported)
             result.put("read_permission", provider.readPermission ?: JSONObject.NULL)
-            try {
-                val cursor = context.contentResolver.query(Uri.parse("content://$authority/chats"), arrayOf("_id"), null, null, null)
-                result.put("chats_query", if (cursor == null) "null_cursor" else "accessible")
-                cursor?.close()
-            } catch (e: SecurityException) {
-                result.put("chats_query", "permission_denied")
-            } catch (e: Exception) {
-                result.put("chats_query", "error")
-                result.put("error_type", e.javaClass.simpleName)
+            result.put("check_calling_or_self", context.checkCallingOrSelfPermission(permissionName) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+            result.put("check_provider_uri", context.checkUriPermission(Uri.parse("content://$authority/chats"), android.os.Process.myPid(), android.os.Process.myUid(), android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            for (projection in listOf(arrayOf("_id"), null)) {
+                val label = if (projection == null) "all_columns" else "id_only"
+                try {
+                    val cursor = context.contentResolver.query(Uri.parse("content://$authority/chats"), projection, null, null, null)
+                    if (cursor == null) result.put("query_$label", "null_cursor")
+                    else cursor.use {
+                        result.put("query_$label", "accessible")
+                        result.put("columns_$label", JSONArray(it.columnNames))
+                    }
+                } catch (e: SecurityException) {
+                    result.put("query_$label", "permission_denied")
+                    result.put("error_$label", e.message ?: "")
+                } catch (e: Exception) {
+                    result.put("query_$label", "error")
+                    result.put("error_$label", e.javaClass.simpleName + ": " + (e.message ?: ""))
+                }
             }
         } else {
             result.put("chats_query", "provider_not_discovered")
