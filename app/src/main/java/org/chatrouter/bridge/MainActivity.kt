@@ -20,6 +20,10 @@ class MainActivity : Activity() {
             val started = router!!.start()
             status.text = if (started) "Local MCP: http://127.0.0.1:8091/mcp\nHealth: http://127.0.0.1:8091/health\nRead-only" else "FAILED: Port 8091 unavailable"
         } })
+        layout.addView(Button(this).apply { text = "Diagnose Beeper"; setOnClickListener {
+            if (router == null) router = RouterServer(applicationContext)
+            status.text = try { router!!.diagnoseBeeper().toString(2) } catch (e: Exception) { "Diagnostic error: " + e.javaClass.simpleName }
+        } })
         layout.addView(Button(this).apply { text = "Stop server"; setOnClickListener {
             router?.stop(); status.text = "Stopped"
         } })
