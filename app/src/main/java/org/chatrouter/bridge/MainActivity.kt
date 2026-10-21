@@ -17,8 +17,8 @@ class MainActivity : Activity() {
         layout.addView(status)
         layout.addView(Button(this).apply { text = "Start local MCP"; setOnClickListener {
             if (router == null) router = RouterServer(applicationContext)
-            router!!.start()
-            status.text = "Local MCP: http://127.0.0.1:8081/mcp\nHealth: http://127.0.0.1:8081/health\nRead-only"
+            val started = router!!.start()
+            status.text = if (started) "Local MCP: http://127.0.0.1:8091/mcp\nHealth: http://127.0.0.1:8091/health\nRead-only" else "FAILED: Port 8091 unavailable"
         } })
         layout.addView(Button(this).apply { text = "Stop server"; setOnClickListener {
             router?.stop(); status.text = "Stopped"
