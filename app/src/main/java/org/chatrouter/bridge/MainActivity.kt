@@ -2,6 +2,7 @@ package org.chatrouter.bridge
 
 import android.app.Activity
 import android.os.Bundle
+import android.content.pm.PackageManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -20,6 +21,14 @@ class MainActivity : Activity() {
             val started = router!!.start()
             status.text = if (started) "Local MCP: http://127.0.0.1:8091/mcp\nHealth: http://127.0.0.1:8091/health\nRead-only" else "FAILED: Port 8091 unavailable"
         } })
+        layout.addView(Button(this).apply { text = "Grant Beeper Read Access"; setOnClickListener {
+            val permission = "com.beeper.android.permission.READ_PERMISSION"
+            if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
+                status.text = "Beeper read permission already granted"
+            } else {
+                requestPermissions(arrayOf(permission), 101)
+            }
+        } })
         layout.addView(Button(this).apply { text = "Diagnose Beeper"; setOnClickListener {
             if (router == null) router = RouterServer(applicationContext)
             status.text = try { router!!.diagnoseBeeper().toString(2) } catch (e: Exception) { "Diagnostic error: " + e.javaClass.simpleName }
@@ -28,6 +37,14 @@ class MainActivity : Activity() {
             router?.stop(); status.text = "Stopped"
         } })
         setContentView(layout)
+    }
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 101) {
+            status.text = if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+                "Beeper read permission granted. Tap Diagnose Beeper."
+            else "Beeper read permission denied."
+        }
     }
     override fun onDestroy() { router?.stop(); super.onDestroy() }
 }
