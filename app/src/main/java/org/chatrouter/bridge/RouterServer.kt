@@ -15,18 +15,22 @@ import java.util.concurrent.atomic.AtomicBoolean
 class RouterServer(private val context: Context) {
     private val active = AtomicBoolean(false)
     private var server: ServerSocket? = null
-    fun start() {
-        if (!active.compareAndSet(false, true)) return
-        Thread {
-            try {
-                val socket = ServerSocket(8081, 8, InetAddress.getByName("127.0.0.1"))
-                server = socket
-                while (active.get()) {
-                    val client = socket.accept()
-                    Thread { handle(client) }.start()
-                }
-            } catch (_: Exception) { active.set(false) }
-        }.start()
+    fun start(): Boolean {
+        if (active.get()) return server?.isClosed == false
+        return try {
+            val socket = ServerSocket(8091, 8, InetAddress.getByName("127.0.0.1"))
+            server = socket
+            active.set(true)
+            Thread {
+                try {
+                    while (active.get()) {
+                        val client = socket.accept()
+                        Thread { handle(client) }.start()
+                    }
+                } catch (_: Exception) { active.set(false) }
+            }.start()
+            true
+        } catch (_: Exception) { active.set(false); false }
     }
     fun stop() { active.set(false); server?.close(); server = null }
     private fun handle(socket: Socket) {
