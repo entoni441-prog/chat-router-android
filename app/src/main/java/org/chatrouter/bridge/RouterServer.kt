@@ -105,7 +105,7 @@ class RouterServer(private val context: Context) {
         return JSONObject().put("name", name).put("description", description)
             .put("inputSchema", JSONObject().put("type", "object").put("properties", props))
     }
-    private fun diagnoseBeeper(): JSONArray {
+    fun diagnoseBeeper(): JSONArray {
         val result = JSONObject()
         val authority = "com.beeper.api"
         result.put("authority", authority)
