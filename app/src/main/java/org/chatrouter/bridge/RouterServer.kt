@@ -72,13 +72,14 @@ class RouterServer(private val context: Context) {
                                     .put("capabilities", JSONObject().put("tools", JSONObject()))
                                     .put("serverInfo", JSONObject().put("name", "chat-router").put("version", "1.0.0"))
                                 "ping" -> JSONObject()
-                                "tools/list" -> JSONObject().put("tools", JSONArray().put(tool("list_chats", "Read Beeper chats", false))
+                                "tools/list" -> JSONObject().put("tools", JSONArray().put(tool("diagnose_beeper", "Check whether Beeper provider is accessible without reading messages", false)).put(tool("list_chats", "Read Beeper chats", false))
                                     .put(tool("list_messages", "Read Beeper messages; optional room_id filter", true)))
                                 "tools/call" -> {
                                     val params = req.optJSONObject("params") ?: throw IllegalArgumentException("Missing params")
                                     val args = params.optJSONObject("arguments") ?: JSONObject()
                                     val name = params.optString("name")
                                     val rows = when (name) {
+                                        "diagnose_beeper" -> diagnoseBeeper()
                                         "list_chats" -> readProvider("chats", args, false)
                                         "list_messages" -> readProvider("messages", args, true)
                                         else -> throw IllegalArgumentException("Unknown tool")
@@ -103,6 +104,31 @@ class RouterServer(private val context: Context) {
         if (room) props.put("room_id", JSONObject().put("type", "string"))
         return JSONObject().put("name", name).put("description", description)
             .put("inputSchema", JSONObject().put("type", "object").put("properties", props))
+    }
+    private fun diagnoseBeeper(): JSONArray {
+        val result = JSONObject()
+        val authority = "com.beeper.api"
+        result.put("authority", authority)
+        val provider = context.packageManager.resolveContentProvider(authority, 0)
+        result.put("provider_discovered", provider != null)
+        if (provider != null) {
+            result.put("provider_package", provider.packageName)
+            result.put("exported", provider.exported)
+            result.put("read_permission", provider.readPermission ?: JSONObject.NULL)
+            try {
+                val cursor = context.contentResolver.query(Uri.parse("content://$authority/chats"), arrayOf("_id"), null, null, null)
+                result.put("chats_query", if (cursor == null) "null_cursor" else "accessible")
+                cursor?.close()
+            } catch (e: SecurityException) {
+                result.put("chats_query", "permission_denied")
+            } catch (e: Exception) {
+                result.put("chats_query", "error")
+                result.put("error_type", e.javaClass.simpleName)
+            }
+        } else {
+            result.put("chats_query", "provider_not_discovered")
+        }
+        return JSONArray().put(result)
     }
     private fun readProvider(path: String, args: JSONObject, filter: Boolean): JSONArray {
         val result = JSONArray()
