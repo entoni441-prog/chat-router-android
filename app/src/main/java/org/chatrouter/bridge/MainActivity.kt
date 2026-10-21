@@ -33,6 +33,10 @@ class MainActivity : Activity() {
             if (router == null) router = RouterServer(applicationContext)
             status.text = try { router!!.diagnoseBeeper().toString(2) } catch (e: Exception) { "Diagnostic error: " + e.javaClass.simpleName }
         } })
+        layout.addView(Button(this).apply { text = "Preview chats"; setOnClickListener {
+            if (router == null) router = RouterServer(applicationContext)
+            status.text = router!!.previewChats().toString(2)
+        } })
         layout.addView(Button(this).apply { text = "Stop server"; setOnClickListener {
             router?.stop(); status.text = "Stopped"
         } })
