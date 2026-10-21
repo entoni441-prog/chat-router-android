@@ -109,6 +109,24 @@ class RouterServer(private val context: Context) {
         val result = JSONObject()
         val authority = "com.beeper.api"
         result.put("authority", authority)
+        val permissionName = "com.beeper.android.permission.READ_PERMISSION"
+        val granted = context.checkSelfPermission(permissionName) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        result.put("read_permission_granted", granted)
+        try {
+            val info = context.packageManager.getPermissionInfo(permissionName, 0)
+            val base = info.protectionLevel and android.content.pm.PermissionInfo.PROTECTION_MASK_BASE
+            result.put("permission_protection", when (base) {
+                android.content.pm.PermissionInfo.PROTECTION_NORMAL -> "normal"
+                android.content.pm.PermissionInfo.PROTECTION_DANGEROUS -> "dangerous"
+                android.content.pm.PermissionInfo.PROTECTION_SIGNATURE -> "signature"
+                else -> "other"
+            })
+            result.put("permission_protection_level", info.protectionLevel)
+        } catch (e: Exception) {
+            result.put("permission_protection", "unknown")
+            result.put("permission_lookup_error", e.javaClass.simpleName)
+        }
+
         val provider = context.packageManager.resolveContentProvider(authority, 0)
         result.put("provider_discovered", provider != null)
         if (provider != null) {
