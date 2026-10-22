@@ -73,7 +73,7 @@ class RouterServer(private val context: Context) {
                                     .put("serverInfo", JSONObject().put("name", "chat-router").put("version", "1.0.0"))
                                 "ping" -> JSONObject()
                                 "tools/list" -> JSONObject().put("tools", JSONArray().put(tool("preview_messages", "Read up to three messages from the first Beeper chat", false)).put(tool("preview_chats", "Read a small sample of Beeper chat metadata", false)).put(tool("diagnose_beeper", "Check whether Beeper provider is accessible without reading messages", false)).put(tool("list_chats", "Read Beeper chats", false))
-                                    .put(tool("list_messages", "Read Beeper messages; optional room_id filter", true)))
+                                    .put(tool("list_messages", "Read Beeper messages from the required room_id", true)))
                                 "tools/call" -> {
                                     val params = req.optJSONObject("params") ?: throw IllegalArgumentException("Missing params")
                                     val args = params.optJSONObject("arguments") ?: JSONObject()
@@ -103,9 +103,9 @@ class RouterServer(private val context: Context) {
     }
     private fun tool(name: String, description: String, room: Boolean): JSONObject {
         val props = JSONObject().put("limit", JSONObject().put("type", "integer").put("minimum", 1).put("maximum", 100))
-        if (room) props.put("room_id", JSONObject().put("type", "string"))
+        if (room) props.put("room_id", JSONObject().put("type", "string").put("minLength", 1))
         return JSONObject().put("name", name).put("description", description)
-            .put("inputSchema", JSONObject().put("type", "object").put("properties", props))
+            .put("inputSchema", JSONObject().put("type", "object").put("properties", props).put("required", if (room) JSONArray().put("room_id") else JSONArray()))
     }
     fun diagnoseBeeper(): JSONArray {
         val result = JSONObject()
@@ -231,10 +231,14 @@ class RouterServer(private val context: Context) {
     private fun readProvider(path: String, args: JSONObject, filter: Boolean): JSONArray {
         val result = JSONArray()
         val limit = args.optInt("limit", 30).coerceIn(1, 100)
-        val room = if (filter) args.optString("room_id") else ""
+        val room = if (filter) args.optString("room_id").trim() else ""
+        if (filter && room.isEmpty()) throw IllegalArgumentException("room_id is required for list_messages")
         val uri = Uri.parse("content://com.beeper.api/$path")
-        val cursor = context.contentResolver.query(uri, null, null, null, null)
-            ?: throw IllegalStateException("Beeper content provider not available")
+        val cursor = if (filter) {
+            context.contentResolver.query(uri, null, "roomId = ?", arrayOf(room), null)
+        } else {
+            context.contentResolver.query(uri, null, null, null, null)
+        } ?: throw IllegalStateException("Beeper content provider not available")
         cursor.use {
             val cols = it.columnNames
             while (it.moveToNext() && result.length() < limit) {
@@ -242,7 +246,7 @@ class RouterServer(private val context: Context) {
                 cols.forEachIndexed { index, column ->
                     row.put(column, try { it.getString(index) ?: "" } catch (_: Exception) { "" })
                 }
-                if (room.isEmpty() || row.optString("roomId") == room || row.optString("room_id") == room) result.put(row)
+                if (!filter || row.optString("roomId") == room) result.put(row)
             }
         }
         return result
