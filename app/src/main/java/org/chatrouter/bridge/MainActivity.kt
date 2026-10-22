@@ -17,9 +17,10 @@ class MainActivity : Activity() {
         status = TextView(this).apply { text = "Stopped — localhost only\nNo messages sent"; textSize = 17f; setPadding(0, 28, 0, 28) }
         layout.addView(status)
         layout.addView(Button(this).apply { text = "Start local MCP"; setOnClickListener {
-            if (router == null) router = RouterServer(applicationContext)
-            val started = router!!.start()
-            status.text = if (started) "Local MCP: http://127.0.0.1:8091/mcp\nHealth: http://127.0.0.1:8091/health\nRead-only" else "FAILED: Port 8091 unavailable"
+            try {
+                startForegroundService(android.content.Intent(this@MainActivity, RouterService::class.java))
+                status.text = "Foreground service requested. Local MCP: http://127.0.0.1:8091/mcp"
+            } catch (e: Exception) { status.text = "Service start failed: " + e.message }
         } })
         layout.addView(Button(this).apply { text = "Grant Beeper Read Access"; setOnClickListener {
             val permission = "com.beeper.android.permission.READ_PERMISSION"
@@ -42,7 +43,7 @@ class MainActivity : Activity() {
             status.text = router!!.previewMessages().toString(2)
         } })
         layout.addView(Button(this).apply { text = "Stop server"; setOnClickListener {
-            router?.stop(); status.text = "Stopped"
+            stopService(android.content.Intent(this@MainActivity, RouterService::class.java)); status.text = "Service stopped"
         } })
         setContentView(layout)
     }
