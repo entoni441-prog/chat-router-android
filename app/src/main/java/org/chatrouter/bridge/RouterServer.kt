@@ -73,7 +73,9 @@ class RouterServer(private val context: Context) {
                                     .put("serverInfo", JSONObject().put("name", "chat-router").put("version", "1.0.0"))
                                 "ping" -> JSONObject()
                                 "tools/list" -> JSONObject().put("tools", JSONArray().put(tool("preview_messages", "Read up to three messages from the first Beeper chat", false)).put(tool("preview_chats", "Read a small sample of Beeper chat metadata", false)).put(tool("diagnose_beeper", "Check whether Beeper provider is accessible without reading messages", false)).put(tool("list_chats", "Read Beeper chats", false))
-                                    .put(tool("list_messages", "Read Beeper messages from the required room_id", true)))
+                                    .put(tool("list_messages", "Read Beeper messages from the required room_id", true))
+                                    .put(tool("search_messages", "Search Beeper messages by text", false))
+                                    .put(tool("list_contacts", "List or search Beeper contacts", false)))
                                 "tools/call" -> {
                                     val params = req.optJSONObject("params") ?: throw IllegalArgumentException("Missing params")
                                     val args = params.optJSONObject("arguments") ?: JSONObject()
@@ -84,6 +86,8 @@ class RouterServer(private val context: Context) {
                                         "preview_messages" -> JSONArray().put(previewMessages())
                                         "list_chats" -> readProvider("chats", args, false)
                                         "list_messages" -> readProvider("messages", args, true)
+                                        "search_messages" -> readProvider("messages", args, false)
+                                        "list_contacts" -> readProvider("contacts", args, false)
                                         else -> throw IllegalArgumentException("Unknown tool")
                                     }
                                     JSONObject().put("content", JSONArray().put(JSONObject().put("type", "text").put("text", rows.toString())))
@@ -103,6 +107,10 @@ class RouterServer(private val context: Context) {
     }
     private fun tool(name: String, description: String, room: Boolean): JSONObject {
         val props = JSONObject().put("limit", JSONObject().put("type", "integer").put("minimum", 1).put("maximum", 100))
+            .put("query", JSONObject().put("type", "string"))
+            .put("protocol", JSONObject().put("type", "string"))
+            .put("offset", JSONObject().put("type", "integer").put("minimum", 0))
+            .put("is_unread", JSONObject().put("type", "boolean"))
         if (room) props.put("room_id", JSONObject().put("type", "string").put("minLength", 1))
         return JSONObject().put("name", name).put("description", description)
             .put("inputSchema", JSONObject().put("type", "object").put("properties", props).put("required", if (room) JSONArray().put("room_id") else JSONArray()))
@@ -234,11 +242,14 @@ class RouterServer(private val context: Context) {
         val room = if (filter) args.optString("room_id").trim() else ""
         if (filter && room.isEmpty()) throw IllegalArgumentException("room_id is required for list_messages")
         val uri = Uri.parse("content://com.beeper.api/$path")
-        val cursor = if (filter) {
-            context.contentResolver.query(uri.buildUpon().appendQueryParameter("roomIds", room).appendQueryParameter("limit", limit.toString()).build(), null, null, null, null)
-        } else {
-            context.contentResolver.query(uri.buildUpon().appendQueryParameter("limit", limit.toString()).build(), null, null, null, null)
-        } ?: throw IllegalStateException("Beeper content provider not available")
+        val builder = uri.buildUpon().appendQueryParameter("limit", limit.toString())
+        if (args.has("offset")) builder.appendQueryParameter("offset", args.optInt("offset", 0).coerceAtLeast(0).toString())
+        if (args.optString("query").isNotBlank()) builder.appendQueryParameter("query", args.optString("query"))
+        if (args.optString("protocol").isNotBlank() && path != "messages") builder.appendQueryParameter("protocol", args.optString("protocol"))
+        if (args.has("is_unread") && path == "chats") builder.appendQueryParameter("isUnread", if (args.optBoolean("is_unread")) "1" else "0")
+        if (filter) builder.appendQueryParameter("roomIds", room)
+        val cursor = context.contentResolver.query(builder.build(), null, null, null, null)
+            ?: throw IllegalStateException("Beeper content provider not available")
         cursor.use {
             val cols = it.columnNames
             while (it.moveToNext() && result.length() < limit) {
