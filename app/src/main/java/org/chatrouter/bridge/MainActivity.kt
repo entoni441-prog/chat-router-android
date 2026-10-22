@@ -1,6 +1,8 @@
 package org.chatrouter.bridge
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.net.Uri
 import android.os.Bundle
 import android.content.pm.PackageManager
 import android.widget.Button
@@ -50,10 +52,50 @@ class MainActivity : Activity() {
             if (router == null) router = RouterServer(applicationContext)
             status.text = router!!.previewMessages().toString(2)
         } })
+        layout.addView(Button(this).apply { text = "Review pending message"; setOnClickListener {
+            reviewDraft()
+        } })
         layout.addView(Button(this).apply { text = "Stop server"; setOnClickListener {
             stopService(android.content.Intent(this@MainActivity, RouterService::class.java)); status.text = "Service stopped"
         } })
         setContentView(layout)
+    }
+    private fun reviewDraft() {
+        val prefs = getSharedPreferences("draft", MODE_PRIVATE)
+        val room = prefs.getString("room", "") ?: ""
+        val message = prefs.getString("text", "") ?: ""
+        if (room.isBlank() || message.isBlank()) {
+            status.text = "No pending message"
+            return
+        }
+        val permission = "com.beeper.android.permission.SEND_PERMISSION"
+        AlertDialog.Builder(this)
+            .setTitle("Approve Beeper message")
+            .setMessage("Destination room ID:\n$room\n\nMessage:\n$message\n\nSend this exact text?")
+            .setNegativeButton("Cancel") { _, _ ->
+                prefs.edit().clear().commit()
+                status.text = "Draft cancelled. Nothing sent."
+            }
+            .setPositiveButton("Send") { _, _ ->
+                if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+                    status.text = "Send permission missing. Draft retained."
+                } else {
+                    prefs.edit().clear().commit()
+                    Thread {
+                        val outcome = try {
+                            val uri = Uri.parse("content://com.beeper.api/messages").buildUpon()
+                                .appendQueryParameter("roomId", room)
+                                .appendQueryParameter("text", message).build()
+                            val result = contentResolver.insert(uri, null)
+                            if (result == null) "Beeper returned no send result"
+                            else "Beeper accepted message. ID: " + (result.getQueryParameter("messageId") ?: "not supplied")
+                        } catch (e: Exception) {
+                            "Send failed: " + e.javaClass.simpleName + ": " + (e.message ?: "")
+                        }
+                        runOnUiThread { status.text = outcome }
+                    }.start()
+                }
+            }.show()
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
