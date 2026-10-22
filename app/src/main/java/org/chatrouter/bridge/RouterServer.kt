@@ -138,7 +138,7 @@ class RouterServer(private val context: Context) {
             result.put("read_permission", provider.readPermission ?: JSONObject.NULL)
             result.put("check_calling_or_self", context.checkCallingOrSelfPermission(permissionName) == android.content.pm.PackageManager.PERMISSION_GRANTED)
             result.put("check_provider_uri", context.checkUriPermission(Uri.parse("content://$authority/chats"), android.os.Process.myPid(), android.os.Process.myUid(), android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION))
-            for (projection in listOf(arrayOf("_id"), null)) {
+            for (projection in listOf<Array<String>?>(arrayOf("_id"), null)) {
                 val label = if (projection == null) "all_columns" else "id_only"
                 try {
                     val cursor = context.contentResolver.query(Uri.parse("content://$authority/chats"), projection, null, null, null)
