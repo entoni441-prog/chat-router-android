@@ -3,6 +3,20 @@ android {
     namespace = "org.chatrouter.bridge"
     compileSdk = 36
     defaultConfig { applicationId = "org.chatrouter.bridge"; minSdk = 26; targetSdk = 35; versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1); versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "1") }
+    signingConfigs {
+        create("persistent") {
+            storeFile = file(System.getenv("CHAT_ROUTER_KEYSTORE_PATH") ?: "missing-keystore.jks")
+            storePassword = System.getenv("CHAT_ROUTER_STORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("CHAT_ROUTER_KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("CHAT_ROUTER_KEY_PASSWORD") ?: ""
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("persistent")
+        }
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
