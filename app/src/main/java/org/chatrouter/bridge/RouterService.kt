@@ -10,6 +10,7 @@ import android.os.IBinder
 
 class RouterService : Service() {
     private var router: RouterServer? = null
+    private var relay: RelayPoller? = null
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
@@ -24,10 +25,14 @@ class RouterService : Service() {
             .build()
         startForeground(1001, notification)
         router = RouterServer(applicationContext)
-        router?.start()
+        if (router?.start() == true) {
+            relay = RelayPoller(applicationContext)
+            relay?.start()
+        }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
     override fun onDestroy() {
+        relay?.stop()
         router?.stop()
         super.onDestroy()
     }
