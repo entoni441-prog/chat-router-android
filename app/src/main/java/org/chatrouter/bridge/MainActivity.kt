@@ -5,6 +5,8 @@ import android.app.AlertDialog
 import android.net.Uri
 import android.os.Bundle
 import android.content.pm.PackageManager
+import android.widget.EditText
+import android.text.InputType
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -63,6 +65,51 @@ class MainActivity : Activity() {
         } })
         layout.addView(Button(this).apply { text = "Review pending message"; setOnClickListener {
             reviewDraft()
+        } })
+        layout.addView(Button(this).apply { text = "Configure remote relay (optional)"; setOnClickListener {
+            val prefs = getSharedPreferences("relay", MODE_PRIVATE)
+            val fields = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(32, 12, 32, 12)
+            }
+            val endpoint = EditText(this@MainActivity).apply {
+                hint = "https://your-worker.workers.dev"
+                setSingleLine(true)
+                setText(prefs.getString("endpoint", ""))
+            }
+            val token = EditText(this@MainActivity).apply {
+                hint = "Device token (not stored in APK)"
+                setSingleLine(true)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            fields.addView(endpoint)
+            fields.addView(token)
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle("Remote relay — read-only")
+                .setView(fields)
+                .setNegativeButton("Cancel", null)
+                .setNeutralButton("Disable") { _, _ ->
+                    prefs.edit().clear().apply()
+                    stopService(android.content.Intent(this@MainActivity, RouterService::class.java))
+                    status.text = "Remote relay disabled. Local service stopped; restart if needed."
+                }
+                .setPositiveButton("Save") { _, _ ->
+                    val url = endpoint.text.toString().trim().trimEnd('/')
+                    val key = token.text.toString().trim()
+                    if (!url.startsWith("https://") || !android.util.Patterns.WEB_URL.matcher(url).matches()) {
+                        status.text = "Relay configuration rejected: valid HTTPS URL required"
+                    } else if (key.isNotEmpty() && key.length < 32) {
+                        status.text = "Relay configuration rejected: token too short"
+                    } else if (key.isEmpty() && prefs.getString("device_token", "").isNullOrEmpty()) {
+                        status.text = "Relay configuration rejected: device token required"
+                    } else {
+                        val edit = prefs.edit().putString("endpoint", url)
+                        if (key.isNotEmpty()) edit.putString("device_token", key)
+                        edit.apply()
+                        stopService(android.content.Intent(this@MainActivity, RouterService::class.java))
+                        status.text = "Relay settings saved. Tap Start local MCP to reconnect."
+                    }
+                }.show()
         } })
         layout.addView(Button(this).apply { text = "Stop server"; setOnClickListener {
             stopService(android.content.Intent(this@MainActivity, RouterService::class.java)); status.text = "Service stopped"
