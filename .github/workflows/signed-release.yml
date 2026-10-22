@@ -35,6 +35,7 @@ jobs:
           chmod 600 "$RUNNER_TEMP/chat-router-signing.jks"
       - name: Build signed release
         env:
+          CHAT_ROUTER_VERSION_CODE: ${{ github.run_number }}
           CHAT_ROUTER_KEYSTORE_PATH: ${{ runner.temp }}/chat-router-signing.jks
           CHAT_ROUTER_STORE_PASSWORD: ${{ secrets.CHAT_ROUTER_STORE_PASSWORD }}
           CHAT_ROUTER_KEY_ALIAS: ${{ secrets.CHAT_ROUTER_KEY_ALIAS }}
