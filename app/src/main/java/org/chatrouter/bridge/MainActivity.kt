@@ -53,15 +53,16 @@ class MainActivity : Activity() {
         } })
         layout.addView(Button(this).apply { text = "Diagnose Beeper"; setOnClickListener {
             if (router == null) router = RouterServer(applicationContext)
-            status.text = try { router!!.diagnoseBeeper().toString(2) } catch (e: Exception) { "Diagnostic error: " + e.javaClass.simpleName }
+            val report = try { router!!.diagnoseBeeper().toString(2) } catch (e: Exception) { "Diagnostic error: " + e.javaClass.simpleName }
+            showResult("Diagnose Beeper", report)
         } })
         layout.addView(Button(this).apply { text = "Preview chats"; setOnClickListener {
             if (router == null) router = RouterServer(applicationContext)
-            status.text = router!!.previewChats().toString(2)
+            showResult("Preview chats", router!!.previewChats().toString(2))
         } })
         layout.addView(Button(this).apply { text = "Inspect message fields"; setOnClickListener {
             if (router == null) router = RouterServer(applicationContext)
-            status.text = router!!.previewMessages().toString(2)
+            showResult("Inspect message fields", router!!.previewMessages().toString(2))
         } })
         layout.addView(Button(this).apply { text = "Review pending message"; setOnClickListener {
             reviewDraft()
@@ -116,6 +117,24 @@ class MainActivity : Activity() {
         } })
         setContentView(layout)
     }
+    private fun showResult(title: String, report: String) {
+        // Keep the main controls visible. Long Beeper diagnostics belong in a
+        // dismissible, scrollable dialog instead of the main status label.
+        val scroll = android.widget.ScrollView(this).apply {
+            addView(TextView(this@MainActivity).apply {
+                text = report
+                textSize = 14f
+                setTextIsSelectable(true)
+                setPadding(36, 24, 36, 24)
+            })
+        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(scroll)
+            .setPositiveButton("Закрыть", null)
+            .show()
+    }
+
     private fun reviewDraft() {
         val prefs = getSharedPreferences("draft", MODE_PRIVATE)
         val room = prefs.getString("room", "") ?: ""
