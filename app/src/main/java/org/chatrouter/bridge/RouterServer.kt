@@ -82,7 +82,6 @@ class RouterServer(private val context: Context) {
                                         "diagnose_beeper" -> diagnoseBeeper()
                                         "preview_chats" -> JSONArray().put(previewChats())
                                         "preview_messages" -> JSONArray().put(previewMessages())
-                                        "preview_messages" -> JSONArray().put(previewMessages())
                                         "list_chats" -> readProvider("chats", args, false)
                                         "list_messages" -> readProvider("messages", args, true)
                                         else -> throw IllegalArgumentException("Unknown tool")
@@ -190,52 +189,6 @@ class RouterServer(private val context: Context) {
             result.put("status", "error")
             result.put("error_type", e.javaClass.simpleName)
             result.put("error", e.message ?: "")
-        }
-        return result
-    }
-    fun previewMessages(): JSONObject {
-        val result = JSONObject()
-        if (context.checkSelfPermission("com.beeper.android.permission.READ_PERMISSION") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            return result.put("status", "permission_required")
-        }
-        try {
-            val chats = context.contentResolver.query(Uri.parse("content://com.beeper.api/chats"), arrayOf("roomId", "title"), null, null, null)
-                ?: return result.put("status", "chats_null_cursor")
-            var roomId = ""
-            var title = ""
-            chats.use {
-                if (it.moveToFirst()) {
-                    roomId = it.getString(it.getColumnIndexOrThrow("roomId")) ?: ""
-                    title = it.getString(it.getColumnIndexOrThrow("title")) ?: ""
-                }
-            }
-            if (roomId.isEmpty()) return result.put("status", "no_chats")
-            result.put("chat_title", title)
-            result.put("room_id", roomId)
-            val uri = Uri.parse("content://com.beeper.api/messages")
-            val cursor = context.contentResolver.query(uri, null, "roomId = ?", arrayOf(roomId), null)
-                ?: return result.put("status", "messages_null_cursor")
-            cursor.use {
-                result.put("status", "ok")
-                result.put("columns", JSONArray(it.columnNames))
-                val rows = JSONArray()
-                var n = 0
-                while (it.moveToNext() && n < 3) {
-                    val row = JSONObject()
-                    it.columnNames.forEachIndexed { index, column ->
-                        if (column.contains("id", true) || column.contains("text", true) || column.contains("body", true) || column.contains("timestamp", true))
-                            row.put(column, try { (it.getString(index) ?: "").take(300) } catch (_: Exception) { "" })
-                    }
-                    rows.put(row)
-                    n++
-                }
-                result.put("rows", rows)
-                result.put("sample_count", n)
-            }
-        } catch (e: Exception) {
-            result.put("status", "error")
-            result.put("error_type", e.javaClass.simpleName)
-            result.put("error", (e.message ?: "").take(600))
         }
         return result
     }
