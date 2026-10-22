@@ -33,6 +33,8 @@ jobs:
           done
           printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/chat-router-signing.jks"
           chmod 600 "$RUNNER_TEMP/chat-router-signing.jks"
+          keytool -list -keystore "$RUNNER_TEMP/chat-router-signing.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "Persistent signing keystore and alias validated."
       - name: Build signed release
         env:
           CHAT_ROUTER_VERSION_CODE: ${{ github.run_number }}
@@ -53,6 +55,7 @@ jobs:
           "$AAPT" dump badging "$APK" | grep '^package:' | tee -a apk-install-report.txt
           sha256sum "$APK" | tee -a apk-install-report.txt
           echo "INSTALLATION: compare signing certificate fingerprint with previous installed build before updating." | tee -a apk-install-report.txt
+          echo "CAUTION: github.run_number belongs to this workflow only. Do not install if versionCode is lower than installed version." | tee -a apk-install-report.txt
       - uses: actions/upload-artifact@v4
         with:
           name: chat-router-signed-release
