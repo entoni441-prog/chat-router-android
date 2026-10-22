@@ -45,6 +45,8 @@ export default {
       }
       if (url.pathname === "/poll" && request.method === "GET" && device) {
         const now = Date.now();
+        // Expire stale jobs and bound queue growth without retaining message content indefinitely.
+        await env.ROUTER_DB.prepare("DELETE FROM jobs WHERE expires_at < ?").bind(now - 60000).run();
         const row = await env.ROUTER_DB.prepare("SELECT id,tool,args FROM jobs WHERE status='queued' AND expires_at>? ORDER BY created_at LIMIT 1").bind(now).first();
         if (!row) return json({ jobs: [] });
         const claim = await env.ROUTER_DB.prepare("UPDATE jobs SET status='claimed' WHERE id=? AND status='queued'").bind(row.id).run();
@@ -53,7 +55,7 @@ export default {
       }
       if (url.pathname === "/result" && request.method === "POST" && device) {
         const payload = await request.json();
-        if (typeof payload?.id !== "string" || typeof payload?.result !== "object") return json({ error: "invalid_result" }, 400);
+        if (typeof payload?.id !== "string" || !/^[0-9a-f-]{36}$/.test(payload.id) || typeof payload?.result !== "object" || payload.result === null || Array.isArray(payload.result)) return json({ error: "invalid_result" }, 400);
         const result = JSON.stringify(payload.result);
         if (result.length > 100000) return json({ error: "too_large" }, 413);
         const changed = await env.ROUTER_DB.prepare("UPDATE jobs SET status='done',result=? WHERE id=? AND status='claimed' AND expires_at>?")
