@@ -30,6 +30,14 @@ class MainActivity : Activity() {
                 requestPermissions(arrayOf(permission), 101)
             }
         } })
+        layout.addView(Button(this).apply { text = "Grant Beeper Send Access"; setOnClickListener {
+            val permission = "com.beeper.android.permission.SEND_PERMISSION"
+            if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
+                status.text = "Beeper send permission granted. Sending is not enabled yet."
+            } else {
+                requestPermissions(arrayOf(permission), 102)
+            }
+        } })
         layout.addView(Button(this).apply { text = "Diagnose Beeper"; setOnClickListener {
             if (router == null) router = RouterServer(applicationContext)
             status.text = try { router!!.diagnoseBeeper().toString(2) } catch (e: Exception) { "Diagnostic error: " + e.javaClass.simpleName }
@@ -49,6 +57,10 @@ class MainActivity : Activity() {
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 102) {
+            status.text = if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+                "Beeper send permission granted. No messages sent." else "Beeper send permission denied."
+        }
         if (requestCode == 101) {
             status.text = if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
                 "Beeper read permission granted. Tap Diagnose Beeper."
