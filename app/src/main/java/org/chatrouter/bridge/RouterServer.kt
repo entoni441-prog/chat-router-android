@@ -235,9 +235,9 @@ class RouterServer(private val context: Context) {
         if (filter && room.isEmpty()) throw IllegalArgumentException("room_id is required for list_messages")
         val uri = Uri.parse("content://com.beeper.api/$path")
         val cursor = if (filter) {
-            context.contentResolver.query(uri, null, "roomId = ?", arrayOf(room), null)
+            context.contentResolver.query(uri.buildUpon().appendQueryParameter("roomIds", room).appendQueryParameter("limit", limit.toString()).build(), null, null, null, null)
         } else {
-            context.contentResolver.query(uri, null, null, null, null)
+            context.contentResolver.query(uri.buildUpon().appendQueryParameter("limit", limit.toString()).build(), null, null, null, null)
         } ?: throw IllegalStateException("Beeper content provider not available")
         cursor.use {
             val cols = it.columnNames
