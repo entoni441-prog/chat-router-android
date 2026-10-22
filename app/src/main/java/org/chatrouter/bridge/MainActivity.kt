@@ -37,6 +37,10 @@ class MainActivity : Activity() {
             if (router == null) router = RouterServer(applicationContext)
             status.text = router!!.previewChats().toString(2)
         } })
+        layout.addView(Button(this).apply { text = "Inspect message fields"; setOnClickListener {
+            if (router == null) router = RouterServer(applicationContext)
+            status.text = router!!.previewMessages().toString(2)
+        } })
         layout.addView(Button(this).apply { text = "Stop server"; setOnClickListener {
             router?.stop(); status.text = "Stopped"
         } })
