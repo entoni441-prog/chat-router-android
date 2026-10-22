@@ -113,14 +113,15 @@ class RouterServer(private val context: Context) {
             .put("offset", JSONObject().put("type", "integer").put("minimum", 0))
             .put("is_unread", JSONObject().put("type", "boolean"))
         if (room) props.put("room_id", JSONObject().put("type", "string").put("minLength", 1))
+        if (name == "prepare_message") props.put("text", JSONObject().put("type", "string").put("minLength", 1).put("maxLength", 10000))
         return JSONObject().put("name", name).put("description", description)
-            .put("inputSchema", JSONObject().put("type", "object").put("properties", props).put("required", if (room) JSONArray().put("room_id") else JSONArray()))
+            .put("inputSchema", JSONObject().put("type", "object").put("properties", props).put("required", if (name == "prepare_message") JSONArray().put("room_id").put("text") else if (room) JSONArray().put("room_id") else JSONArray()))
     }
     private fun prepareMessage(args: JSONObject): JSONObject {
         val room = args.optString("room_id").trim()
         val message = args.optString("text")
-        require(room.isNotEmpty()) { "room_id required" }
-        require(message.isNotBlank()) { "text required" }
+        require(room.isNotEmpty() && room.length <= 512) { "room_id required" }
+        require(message.isNotBlank() && message.length <= 10000) { "text required" }
         context.getSharedPreferences("draft", Context.MODE_PRIVATE).edit()
             .putString("room", room).putString("text", message).apply()
         return JSONObject().put("status", "draft_saved").put("sent", false)
