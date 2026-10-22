@@ -39,7 +39,7 @@ export function createChatRouterResourceServer({
         const scopes = Array.isArray(auth?.scope)
           ? auth.scope
           : typeof auth?.scope === "string"
-            ? auth.scope.split(/\\s+/)
+            ? auth.scope.split(/\s+/)
             : [];
         if (!scopes.includes("beeper:read")) {
           return new Response("Forbidden", { status: 403 });
