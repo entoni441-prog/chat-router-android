@@ -82,6 +82,7 @@ class RouterServer(private val context: Context) {
                                         "diagnose_beeper" -> diagnoseBeeper()
                                         "preview_chats" -> JSONArray().put(previewChats())
                                         "preview_messages" -> JSONArray().put(previewMessages())
+                                        "preview_messages" -> JSONArray().put(previewMessages())
                                         "list_chats" -> readProvider("chats", args, false)
                                         "list_messages" -> readProvider("messages", args, true)
                                         else -> throw IllegalArgumentException("Unknown tool")
@@ -235,6 +236,42 @@ class RouterServer(private val context: Context) {
             result.put("status", "error")
             result.put("error_type", e.javaClass.simpleName)
             result.put("error", (e.message ?: "").take(600))
+        }
+        return result
+    }
+    fun previewMessages(): JSONObject {
+        val result = JSONObject()
+        try {
+            val chats = context.contentResolver.query(Uri.parse("content://com.beeper.api/chats"), arrayOf("roomId", "title"), null, null, null)
+                ?: return result.put("status", "chats_null_cursor")
+            var roomId = ""
+            chats.use { if (it.moveToFirst()) roomId = it.getString(0) ?: "" }
+            if (roomId.isEmpty()) return result.put("status", "no_chats")
+            result.put("room_id_present", true)
+            val cursor = context.contentResolver.query(Uri.parse("content://com.beeper.api/messages"), null, null, null, null)
+                ?: return result.put("status", "messages_null_cursor")
+            cursor.use {
+                result.put("status", "ok")
+                result.put("columns", JSONArray(it.columnNames))
+                result.put("message_count_sampled", minOf(it.count, 5))
+                val samples = JSONArray()
+                var count = 0
+                while (it.moveToNext() && count < 5) {
+                    val row = JSONObject()
+                    it.columnNames.forEachIndexed { index, column ->
+                        if (column.equals("roomId", true) || column.equals("eventId", true) || column.equals("timestamp", true) || column.equals("sender", true)) {
+                            row.put(column, try { it.getString(index) ?: "" } catch (_: Exception) { "" })
+                        }
+                    }
+                    samples.put(row)
+                    count++
+                }
+                result.put("metadata_samples", samples)
+            }
+        } catch (e: Exception) {
+            result.put("status", "error")
+            result.put("error_type", e.javaClass.simpleName)
+            result.put("error", e.message ?: "")
         }
         return result
     }
