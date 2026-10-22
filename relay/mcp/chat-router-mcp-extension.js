@@ -1,0 +1,1 @@
+// Placeholder removed in next commit; implementation is maintained as validated local artifact pending integration.
