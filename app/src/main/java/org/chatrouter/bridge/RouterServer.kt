@@ -75,7 +75,7 @@ class RouterServer(private val context: Context) {
                                 "tools/list" -> JSONObject().put("tools", JSONArray().put(tool("preview_messages", "Read up to three messages from the first Beeper chat", false)).put(tool("preview_chats", "Read a small sample of Beeper chat metadata", false)).put(tool("diagnose_beeper", "Check whether Beeper provider is accessible without reading messages", false)).put(tool("list_chats", "Read Beeper chats", false))
                                     .put(tool("list_messages", "Read Beeper messages from the required room_id", true))
                                     .put(tool("search_messages", "Search Beeper messages by text", false))
-                                    .put(tool("list_contacts", "List or search Beeper contacts", false)))
+                                    .put(tool("list_contacts", "List or search Beeper contacts", false)).put(tool("prepare_message", "Save a draft for review on device", true)))
                                 "tools/call" -> {
                                     val params = req.optJSONObject("params") ?: throw IllegalArgumentException("Missing params")
                                     val args = params.optJSONObject("arguments") ?: JSONObject()
@@ -88,6 +88,7 @@ class RouterServer(private val context: Context) {
                                         "list_messages" -> readProvider("messages", args, true)
                                         "search_messages" -> readProvider("messages", args, false)
                                         "list_contacts" -> readProvider("contacts", args, false)
+                                        "prepare_message" -> JSONArray().put(prepareMessage(args))
                                         else -> throw IllegalArgumentException("Unknown tool")
                                     }
                                     JSONObject().put("content", JSONArray().put(JSONObject().put("type", "text").put("text", rows.toString())))
@@ -114,6 +115,15 @@ class RouterServer(private val context: Context) {
         if (room) props.put("room_id", JSONObject().put("type", "string").put("minLength", 1))
         return JSONObject().put("name", name).put("description", description)
             .put("inputSchema", JSONObject().put("type", "object").put("properties", props).put("required", if (room) JSONArray().put("room_id") else JSONArray()))
+    }
+    private fun prepareMessage(args: JSONObject): JSONObject {
+        val room = args.optString("room_id").trim()
+        val message = args.optString("text")
+        require(room.isNotEmpty()) { "room_id required" }
+        require(message.isNotBlank()) { "text required" }
+        context.getSharedPreferences("draft", Context.MODE_PRIVATE).edit()
+            .putString("room", room).putString("text", message).apply()
+        return JSONObject().put("status", "draft_saved").put("sent", false)
     }
     fun diagnoseBeeper(): JSONArray {
         val result = JSONObject()
