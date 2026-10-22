@@ -34,10 +34,19 @@ class MainActivity : Activity() {
         } })
         layout.addView(Button(this).apply { text = "Grant Beeper Send Access"; setOnClickListener {
             val permission = "com.beeper.android.permission.SEND_PERMISSION"
+            val details = try {
+                val info = packageManager.getPermissionInfo(permission, 0)
+                val base = info.protectionLevel and android.content.pm.PermissionInfo.PROTECTION_MASK_BASE
+                "Declared permission; protection base=$base"
+            } catch (e: Exception) {
+                "Permission lookup failed: " + e.javaClass.simpleName
+            }
             if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
-                status.text = "Beeper send permission granted. Sending is not enabled yet."
+                status.text = "Beeper SEND granted. $details"
             } else {
-                requestPermissions(arrayOf(permission), 102)
+                status.text = "Beeper SEND not granted. $details. Requesting Android permission..."
+                try { requestPermissions(arrayOf(permission), 102) }
+                catch (e: Exception) { status.text = "SEND request error: " + e.javaClass.simpleName + ": " + (e.message ?: "") }
             }
         } })
         layout.addView(Button(this).apply { text = "Diagnose Beeper"; setOnClickListener {
@@ -101,7 +110,7 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 102) {
             status.text = if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
-                "Beeper send permission granted. No messages sent." else "Beeper send permission denied."
+                "Beeper SEND granted. No messages sent." else "Beeper SEND denied or unavailable. Android result: " + grantResults.joinToString()
         }
         if (requestCode == 101) {
             status.text = if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
