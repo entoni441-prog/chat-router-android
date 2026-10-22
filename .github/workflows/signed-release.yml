@@ -37,7 +37,7 @@ jobs:
           echo "Persistent signing keystore and alias validated."
       - name: Build signed release
         env:
-          CHAT_ROUTER_VERSION_CODE: ${{ github.run_number }}
+          CHAT_ROUTER_VERSION_CODE: ${{ github.run_number + 100000 }}
           CHAT_ROUTER_KEYSTORE_PATH: ${{ runner.temp }}/chat-router-signing.jks
           CHAT_ROUTER_STORE_PASSWORD: ${{ secrets.CHAT_ROUTER_STORE_PASSWORD }}
           CHAT_ROUTER_KEY_ALIAS: ${{ secrets.CHAT_ROUTER_KEY_ALIAS }}
