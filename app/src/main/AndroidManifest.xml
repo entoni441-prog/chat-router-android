@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="com.beeper.android.permission.READ_PERMISSION"/>
+    <uses-permission android:name="com.beeper.android.permission.SEND_PERMISSION"/>
     <queries><provider android:authorities="com.beeper.api"/></queries>
     <application android:label="Chat Router" android:usesCleartextTraffic="true" android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <service android:name=".RouterService" android:exported="false" android:foregroundServiceType="dataSync"/>
