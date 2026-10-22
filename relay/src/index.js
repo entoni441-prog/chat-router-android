@@ -31,7 +31,7 @@ export default {
       if (url.pathname === "/enqueue" && request.method === "POST" && client) {
         const payload = await request.json();
         const tool = payload?.tool;
-        if (!["list_chats", "list_messages", "search_messages", "list_contacts", "prepare_message"].includes(tool))
+        if (!["list_chats", "list_messages", "search_messages", "list_contacts"].includes(tool))
           return json({ error: "unsupported_tool" }, 400);
         const args = payload?.arguments ?? {};
         if (typeof args !== "object" || args === null || Array.isArray(args)) return json({ error: "invalid_arguments" }, 400);
