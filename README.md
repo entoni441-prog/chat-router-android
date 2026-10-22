@@ -22,10 +22,10 @@ Write:
 - Android `SEND_PERMISSION` is a runtime permission.
 - Documented text send uses `ContentResolver.insert(content://com.beeper.api/messages?roomId=...&text=..., null)`.
 - No edit, delete, archive, react, or media-send ContentProvider operations documented.
-- Send permission prompt is implemented; **no sending MCP tool is enabled yet**.
+- Send permission prompt is implemented. `prepare_message` stages a draft; `Review pending message` shows a native Android confirmation dialog and only the user pressing Send invokes Beeper insert. This has not been physically tested.
 
 ## Security and remaining work
 - Local server binds to `127.0.0.1` only; never expose unauthenticated MCP to the internet.
 - External HTTPS relay, authenticated MCP sessions, explicit approval for writes, audit logging, and service lifecycle verification are pending.
-- Foreground service has been introduced but Android 16 reliability and boot restart are not verified.
+- Foreground service has been introduced but Android 16 reliability and boot restart are not verified. `dataSync` foreground services have Android 15+ execution time limits; do not claim 24/7 uptime.
 - This is an experimental Beeper Android API; behavior may change.
