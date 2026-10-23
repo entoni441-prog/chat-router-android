@@ -1,0 +1,42 @@
+name: Staging MCP schema verification
+on:
+  push:
+    paths:
+      - .github/workflows/staging-mcp-schema-check.yml
+      - relay/mcp/authenticated-mcp-handler.js
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: relay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify staging MCP tests and bundle
+        id: verify
+        shell: bash
+        run: |
+          npm install --no-package-lock --ignore-scripts
+          npm test
+          npm run build
+      - name: Publish sanitized verification result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_RESULT: ${{ steps.verify.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json,os,urllib.request
+          body='Staging MCP schema verification: '+os.environ['JOB_RESULT']+' (commit '+os.environ['GITHUB_SHA'][:12]+'). No production deployment performed.'
+          req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/issues/1/comments',data=json.dumps({'body':body}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json','User-Agent':'ChatRouterStagingProbe/1.0'},method='POST')
+          with urllib.request.urlopen(req,timeout=20) as response:
+            print('Verification report status:',response.status)
+          PY
