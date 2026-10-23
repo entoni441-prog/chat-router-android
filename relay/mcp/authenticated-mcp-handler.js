@@ -41,7 +41,7 @@ export function createAuthenticatedMcpHandler() {
         }));
         if (allowed) {
           for (const tool of TOOLS) {
-            server.registerTool(tool.name, {description:tool.description,inputSchema:shapes[tool.name]}, async args => {
+            server.registerTool(tool.name, {description:tool.description,inputSchema:shapes[tool.name].shape}, async args => {
               const current = getMcpAuthContext();
               if (current?.props?.ownerId !== OWNER_GITHUB_USER_ID ||
                   current?.props?.resource !== resource ||
