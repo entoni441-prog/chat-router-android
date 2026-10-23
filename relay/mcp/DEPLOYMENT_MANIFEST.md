@@ -28,3 +28,20 @@ Owner GitHub user ID: `345764393` (verify via GitHub `GET /user`, never email/lo
 
 ## Security release gate
 Do not deploy if any of the following are missing: real GitHub owner login, state/CSRF validation, verified consent, OAuth authorization-code PKCE, token storage, token validation, or successful end-to-end Android tests.
+
+## Verified readiness checkpoint — 2026-10-23
+- GitHub Actions passed for commit `a789cf5` (Android and Worker checks).
+- Cloudflare API confirmed the production Worker has bindings `CLIENT_TOKEN`, `DEVICE_TOKEN`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `ROUTER_DB`.
+- KV namespace `chat-router-oauth` exists but `OAUTH_KV` is **not** bound to the Worker.
+- `COOKIE_ENCRYPTION_KEY` is **not** configured.
+- No staging deployment or real OAuth exchange has been verified.
+- **Staging caveat:** current OAuth resource URL, callback URL, and origin checks are hard-coded to the production hostname in several modules. A separate staging hostname requires coordinated configuration of these URLs, the GitHub OAuth callback, and resource/audience checks. Do not deploy this bundle to a different hostname unchanged.
+- **Database caveat:** staging must not share production job traffic or OAuth replay state unless explicitly isolated. Use a dedicated staging D1 and KV namespace for end-to-end tests.
+- **GitHub caveat:** OAuth app callback must match the actual staging callback. Prefer a separate GitHub OAuth app for staging rather than changing the production app callback.
+
+### Release order
+1. Parameterize and test staging origin/resource/callback without weakening the production-origin guard.
+2. Provision isolated staging D1 and KV; apply migration; add staging-only OAuth secrets and binding.
+3. Deploy staging under its own Worker name; verify denial cases, PKCE, state replay, owner ID, consent, token audience and scope.
+4. Verify real MCP initialization, tool discovery and Android readback against a staging-compatible device queue.
+5. Only after passing these gates, plan a production change preserving all existing secrets and routes.
