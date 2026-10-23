@@ -101,9 +101,24 @@ export async function handleGitHubAuthorization(request, env) {
   target.searchParams.set('redirect_uri', origin + '/callback');
   target.searchParams.set('scope', 'read:user');
   target.searchParams.set('state', githubTransaction.state);
-  const headers = new Headers({ location: target.href, 'cache-control': 'no-store' });
+  // Embedded OAuth browsers may silently ignore a cross-origin 303 after
+  // submitting a form. Return an explicit user-navigable GitHub link instead.
+  // The one-time state and transaction are already stored at this point.
+  const safeTarget = target.href.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const html = '<!doctype html><html lang="en"><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width">' +
+    '<title>Continue to GitHub</title><main><h1>Consent confirmed</h1>' +
+    '<p>Continue to GitHub to complete authentication.</p>' +
+    '<p><a href="' + safeTarget + '">Continue to GitHub</a></p></main></html>';
+  const headers = new Headers({
+    'cache-control': 'no-store',
+    'content-type': 'text/html; charset=utf-8',
+    'content-security-policy': "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    'x-content-type-options': 'nosniff',
+    'x-chat-router-oauth-stage': 'github-link-ready',
+  });
   headers.append('set-cookie', COOKIE_CLEAR);
   headers.append('set-cookie', githubTransaction.cookie);
-  return new Response(null, { status: 303, headers });
+  return new Response(html, { status: 200, headers });
 }
 export const GitHubAuthorizationHandler = { fetch: handleGitHubAuthorization };
