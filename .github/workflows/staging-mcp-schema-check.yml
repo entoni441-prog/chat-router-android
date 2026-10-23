@@ -39,6 +39,23 @@ jobs:
             exit "$build_status"
           fi
           echo 'none' > /tmp/staging-failed-stage
+      - name: Hash staging bundle and upload artifact
+        if: steps.verify.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          find . -maxdepth 2 -type f -print | sort
+          tar -czf ../chat-router-oauth-staging.tar.gz .
+          cd ..
+          sha256sum chat-router-oauth-staging.tar.gz | tee /tmp/staging-artifact-sha256
+      - uses: actions/upload-artifact@v4
+        if: steps.verify.outcome == 'success'
+        with:
+          name: chat-router-oauth-staging
+          path: relay/chat-router-oauth-staging.tar.gz
+          if-no-files-found: error
+          retention-days: 7
       - name: Publish sanitized verification result
         if: always()
         env:
@@ -50,6 +67,8 @@ jobs:
           from pathlib import Path
           stage=Path('/tmp/staging-failed-stage').read_text().strip() if Path('/tmp/staging-failed-stage').exists() else 'workflow'
           body='Staging MCP schema verification: '+os.environ['JOB_RESULT']+'; stage='+stage+' (commit '+os.environ['GITHUB_SHA'][:12]+'). No production deployment performed.'
+          if os.environ['JOB_RESULT']=='success' and Path('/tmp/staging-artifact-sha256').exists():
+            body+='\\nArtifact SHA-256: '+Path('/tmp/staging-artifact-sha256').read_text().strip()
           if stage=='build' and Path('/tmp/staging-build-errors').exists():
             body+='\\nBuild diagnostics (filtered):\\n'+Path('/tmp/staging-build-errors').read_text()[:3000]
           req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/issues/1/comments',data=json.dumps({'body':body}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json','User-Agent':'ChatRouterStagingProbe/1.0'},method='POST')
