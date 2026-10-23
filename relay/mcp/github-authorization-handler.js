@@ -66,7 +66,7 @@ export async function handleGitHubAuthorization(request, env) {
   } catch (cause) {
     // Only explicit fixed diagnostic codes are allowed in user-visible output.
     const allowed = new Set([
-      'consent-cookie-missing', 'consent-csrf-missing', 'consent-not-approved',
+      'consent-cookie-missing', 'consent-cookie-mismatch', 'consent-nonce-missing', 'consent-csrf-missing', 'consent-not-approved',
       'consent-kv-missing', 'consent-csrf-mismatch', 'consent-expired',
     ]);
     const stage = allowed.has(cause?.message) ? cause.message : 'consent-verification';
