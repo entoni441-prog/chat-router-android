@@ -22,6 +22,7 @@ jobs:
             ('oauth-authorization','GET','/.well-known/oauth-authorization-server',None),
             ('mcp-no-token','POST','/mcp',json.dumps({'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'staging-public-probe','version':'1'}}}).encode()),
           ]
+          failures=[]
           for name,method,path,body in checks:
             headers={'Accept':'application/json'}
             if body: headers['Content-Type']='application/json'
@@ -31,14 +32,29 @@ jobs:
                 status=response.status
                 content_type=response.headers.get('Content-Type','').split(';')[0]
                 payload=response.read(8192)
+                response_headers=response.headers
             except urllib.error.HTTPError as error:
               status=error.code
               content_type=error.headers.get('Content-Type','').split(';')[0]
               payload=error.read(8192)
+              response_headers=error.headers
             except Exception as error:
               print(f'{name}: transport_error={type(error).__name__}')
               raise
-            safe={'check':name,'status':status,'content_type':content_type}
+            safe={'check':name,'status':status,'content_type':content_type,
+                  'server':response_headers.get('Server',''),
+                  'cf_ray_present':bool(response_headers.get('CF-Ray')),
+                  'cf_mitigated':response_headers.get('cf-mitigated',''),
+                  'www_authenticate_present':bool(response_headers.get('WWW-Authenticate')),
+                  'body_is_html':payload.lstrip().lower().startswith((b'<!doctype html',b'<html'))}
+            if content_type=='application/json':
+              try:
+                obj=json.loads(payload)
+                safe['json_keys']=sorted(obj.keys()) if isinstance(obj,dict) else []
+                if isinstance(obj,dict):
+                  safe['error_code']=obj.get('code') if isinstance(obj.get('code'),int) else None
+              except (ValueError,TypeError):
+                safe['json_valid']=False
             if name!='mcp-no-token' and status==200 and content_type=='application/json':
               try:
                 obj=json.loads(payload)
@@ -50,7 +66,9 @@ jobs:
                 safe['json_valid']=False
             print(json.dumps(safe,sort_keys=True))
             if name=='mcp-no-token' and status!=401:
-              raise SystemExit('Unexpected unauthenticated MCP status')
+              failures.append('Unexpected unauthenticated MCP status')
             if name!='mcp-no-token' and status!=200:
-              raise SystemExit('OAuth metadata unavailable')
+              failures.append(name+' OAuth metadata unavailable')
+          if failures:
+            raise SystemExit('; '.join(failures))
           PY
