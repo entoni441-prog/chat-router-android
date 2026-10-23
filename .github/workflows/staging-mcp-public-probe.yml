@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -13,8 +14,11 @@ jobs:
     steps:
       - name: Check public OAuth metadata and unauthenticated MCP
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 - <<'PY'
+          set +e
+          python3 - <<'PY' > /tmp/staging_probe_result.txt 2>&1
           import json, urllib.request, urllib.error
           origin='https://chat-router-relay-staging.entoni441.workers.dev'
           checks=[
@@ -72,3 +76,27 @@ jobs:
           if failures:
             raise SystemExit('; '.join(failures))
           PY
+          probe_exit=$?
+          PROBE_EXIT="$probe_exit" python3 - <<'PY'
+          import json,os,urllib.request
+          with open('/tmp/staging_probe_result.txt',encoding='utf-8',errors='replace') as f:
+            lines=f.readlines()
+          safe=[]
+          for line in lines:
+            try:
+              obj=json.loads(line)
+              if isinstance(obj,dict) and obj.get('check') in ('oauth-resource','oauth-authorization','mcp-no-token'):
+                safe.append({key:obj.get(key) for key in ('check','status','content_type','server','cf_ray_present','cf_mitigated','www_authenticate_present','body_is_html','json_keys','error_code') if key in obj})
+            except (ValueError,TypeError):
+              pass
+          body='Automated staging probe. Exit: '+os.environ['PROBE_EXIT']+'\\n\\n'+'\\n'.join('\\x60'+json.dumps(x,sort_keys=True)+'\\x60' for x in safe)
+          if not safe: body+='\\nNo structured endpoint results were emitted.'
+          request=urllib.request.Request(
+            'https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/issues/1/comments',
+            data=json.dumps({'body':body}).encode(),
+            headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},
+            method='POST')
+          with urllib.request.urlopen(request,timeout=15) as response:
+            print('Diagnostic issue comment HTTP:',response.status)
+          PY
+          exit "$probe_exit"
