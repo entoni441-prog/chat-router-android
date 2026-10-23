@@ -35,7 +35,7 @@ jobs:
           build_status=$?
           if [ "$build_status" -ne 0 ]; then
             echo 'build' > /tmp/staging-failed-stage
-            grep -Ei 'error|cannot resolve|could not resolve|not found|failed|missing|invalid' /tmp/build.log | sed -E 's@https?://[^ ]+@[URL]@g' | head -n 8 > /tmp/staging-build-errors
+            tail -n 35 /tmp/build.log | sed -E 's@https?://[^ ]+@[URL]@g;s/[[:cntrl:]]\[[0-9;]*m//g' | head -n 35 > /tmp/staging-build-errors
             exit "$build_status"
           fi
           echo 'none' > /tmp/staging-failed-stage
@@ -51,7 +51,7 @@ jobs:
           stage=Path('/tmp/staging-failed-stage').read_text().strip() if Path('/tmp/staging-failed-stage').exists() else 'workflow'
           body='Staging MCP schema verification: '+os.environ['JOB_RESULT']+'; stage='+stage+' (commit '+os.environ['GITHUB_SHA'][:12]+'). No production deployment performed.'
           if stage=='build' and Path('/tmp/staging-build-errors').exists():
-            body+='\\nBuild diagnostics (filtered):\\n'+Path('/tmp/staging-build-errors').read_text()[:1200]
+            body+='\\nBuild diagnostics (filtered):\\n'+Path('/tmp/staging-build-errors').read_text()[:3000]
           req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/issues/1/comments',data=json.dumps({'body':body}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json','User-Agent':'ChatRouterStagingProbe/1.0'},method='POST')
           with urllib.request.urlopen(req,timeout=20) as response:
             print('Verification report status:',response.status)
