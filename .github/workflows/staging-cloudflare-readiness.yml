@@ -35,3 +35,4 @@ jobs:
           with urllib.request.urlopen(req,timeout=20) as response:
             print('Readiness report status:',response.status)
           PY
+# Recheck token availability after repository secret creation.
