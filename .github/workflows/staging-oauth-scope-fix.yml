@@ -2,7 +2,7 @@ name: Staging OAuth scope fix verification and deployment
 on:
   push:
     branches: [fix/staging-mcp-verified-scopes]
-    paths: [.github/workflows/staging-oauth-scope-fix.yml]
+    paths: [.github/workflows/staging-oauth-scope-fix.yml, relay/mcp/authenticated-mcp-handler.js]
 permissions:
   contents: read
 jobs:
@@ -40,3 +40,5 @@ jobs:
           }
           JSON
           npx wrangler deploy --config staging-deploy.json --keep-vars
+
+# Staging verification trigger for tool execution guard fix.
