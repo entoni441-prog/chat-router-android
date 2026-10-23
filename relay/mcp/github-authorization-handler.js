@@ -19,7 +19,8 @@ function checkRequest(auth) {
 }
 export async function handleGitHubAuthorization(request, env) {
   const url = new URL(request.url);
-  if (url.origin !== ORIGIN) return error(421);
+  const origin = env?.OAUTH_ORIGIN || ORIGIN;
+  if (url.origin !== origin) return error(421);
   if (!env?.OAUTH_PROVIDER || !env?.OAUTH_KV || !env?.ROUTER_DB || !env?.GITHUB_CLIENT_ID) return error(503);
   if (url.pathname === '/callback') {
     return githubCallback(request, env, env.OAUTH_PROVIDER, {
@@ -51,7 +52,7 @@ export async function handleGitHubAuthorization(request, env) {
     });
     const target = new URL('https://github.com/login/oauth/authorize');
     target.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
-    target.searchParams.set('redirect_uri', ORIGIN + '/callback');
+    target.searchParams.set('redirect_uri', origin + '/callback');
     target.searchParams.set('scope', 'read:user');
     target.searchParams.set('state', state);
     const headers = new Headers({ location: target.href, 'cache-control': 'no-store' });
