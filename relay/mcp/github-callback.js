@@ -52,8 +52,9 @@ export async function githubCallback(request, env, oauthProvider, { lookupTransa
       metadata: { label: 'Chat Router owner' },
     });
     const target = new URL(redirectTo);
-    if (target.protocol !== 'https:' && target.hostname !== 'localhost' &&
-        target.hostname !== '127.0.0.1') return fail(500);
+    if (target.protocol !== 'https:' &&
+        !(target.protocol === 'http:' &&
+          (target.hostname === 'localhost' || target.hostname === '127.0.0.1' || target.hostname === '[::1]'))) return fail(500);
     return new Response(null, {
       status: 302,
       headers: { location: redirectTo, 'set-cookie': clearCookie, 'cache-control': 'no-store' },
