@@ -11,11 +11,11 @@ export async function digestConsentToken(token) {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(token));
   return b64(new Uint8Array(digest));
 }
-export function renderConsent({ clientName, csrfToken }) {
+export function renderConsent({ clientName, csrfToken, consentNonce }) {
   const safeName = String(clientName || 'Unknown MCP client').replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   })[c]);
-  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Chat Router permission</title><body><main><h1>Allow Chat Router access?</h1><p><strong>${safeName}</strong> requests read-only access to chats, messages and contacts on your connected Android device.</p><p>Permission: <code>beeper:read</code>. Only approve if you started this connection.</p><form method="POST" action="/authorize"><input type="hidden" name="csrf" value="${csrfToken}"><button type="submit" name="decision" value="approve">Approve</button><button type="submit" name="decision" value="deny">Deny</button></form></main></body></html>`, {
+  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Chat Router permission</title><body><main><h1>Allow Chat Router access?</h1><p><strong>${safeName}</strong> requests read-only access to chats, messages and contacts on your connected Android device.</p><p>Permission: <code>beeper:read</code>. Only approve if you started this connection.</p><form method="POST" action="/authorize"><input type="hidden" name="csrf" value="${csrfToken}"><input type="hidden" name="consent_nonce" value="${consentNonce}"><button type="submit" name="decision" value="approve">Approve</button><button type="submit" name="decision" value="deny">Deny</button></form></main></body></html>`, {
     status: 200, headers: { 'content-type':'text/html; charset=utf-8','cache-control':'no-store','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",'x-content-type-options':'nosniff' }
   });
 }
@@ -26,7 +26,7 @@ export async function createConsentChallenge(kv, authRequest, clientName) {
   await kv.put('chat-router-consent:' + await digestConsentToken(nonce),
     JSON.stringify({ csrfHash: await digestConsentToken(csrf), authRequest, clientName, issuedAt: Date.now() }),
     { expirationTtl: 300 });
-  const response = renderConsent({ clientName, csrfToken: csrf });
+  const response = renderConsent({ clientName, csrfToken: csrf, consentNonce: nonce });
   response.headers.set('set-cookie', '__Host-chat_router_consent=' + nonce + '; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=300');
   return response;
 }
@@ -34,9 +34,15 @@ export async function verifyConsentPost(kv, request, now = Date.now()) {
   const form = await request.formData();
   const cookie = (request.headers.get('cookie') || '').split(';').map(s=>s.trim())
     .find(s=>s.startsWith('__Host-chat_router_consent='));
-  const nonce = cookie?.slice('__Host-chat_router_consent='.length);
+  const cookieNonce = cookie?.slice('__Host-chat_router_consent='.length);
+  const formNonce = form.get('consent_nonce');
+  // Some embedded OAuth browsers do not persist cookies across the consent POST.
+  // Bind the form to its KV challenge using two independent random tokens;
+  // the caller atomically redeems the nonce in D1 before any redirect.
+  if (cookieNonce && typeof formNonce === 'string' && cookieNonce !== formNonce) throw new Error('consent-cookie-mismatch');
+  const nonce = cookieNonce || formNonce;
   const csrf = form.get('csrf');
-  if (!nonce) throw new Error('consent-cookie-missing');
+  if (typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(nonce)) throw new Error('consent-nonce-missing');
   if (typeof csrf !== 'string' || !csrf) throw new Error('consent-csrf-missing');
   if (form.get('decision') !== 'approve') throw new Error('consent-not-approved');
   const raw = await kv.get('chat-router-consent:' + await digestConsentToken(nonce));
