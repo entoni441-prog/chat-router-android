@@ -1,0 +1,51 @@
+name: Deploy verified Chat Router staging
+on:
+  push:
+    paths:
+      - .github/workflows/deploy-chat-router-staging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ed4b23d57f683e31166503d83e3b883b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: chat-router-oauth-staging
+          run-id: 39980119781
+          github-token: ${{ github.token }}
+          path: staging-artifact
+      - name: Verify artifact SHA-256 and extract
+        run: |
+          set -euo pipefail
+          echo "0007cc45872875d247f603734d59099575cc8e28963aa0bb1ee37772ff56779a  staging-artifact/chat-router-oauth-staging.tar.gz" | sha256sum -c -
+          mkdir -p staging-bundle
+          tar -xzf staging-artifact/chat-router-oauth-staging.tar.gz -C staging-bundle
+          test -s staging-bundle/oauth-entry.js
+      - name: Deploy staging only preserving bindings
+        working-directory: relay
+        run: |
+          set -euo pipefail
+          npm install --no-package-lock --ignore-scripts --no-audit --no-fund
+          cat > ../staging-bundle/wrangler.json <<'JSON'
+          {
+            "name": "chat-router-relay-staging",
+            "main": "./oauth-entry.js",
+            "compatibility_date": "2026-10-20",
+            "compatibility_flags": ["nodejs_compat"],
+            "keep_vars": true,
+            "kv_namespaces": [{"binding":"OAUTH_KV","id":"39b20e97fbfe43d7aa090674f1a3743f"}],
+            "d1_databases": [{"binding":"ROUTER_DB","database_name":"chat-router-relay-staging","database_id":"e135858f-3e88-414a-8459-df69cb9d0455"}]
+          }
+          JSON
+          npx wrangler deploy --config ../staging-bundle/wrangler.json --keep-vars
