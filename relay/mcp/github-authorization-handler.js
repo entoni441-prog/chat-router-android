@@ -12,7 +12,8 @@ const COOKIE_CLEAR = '__Host-chat_router_consent=; Path=/; Secure; HttpOnly; Sam
 const error = (status = 400) => new Response('Authorization request rejected', { status, headers: { 'cache-control': 'no-store' } });
 function checkRequest(auth) {
   return auth && typeof auth.clientId === 'string' && auth.clientId &&
-    auth.resource === MCP_RESOURCE && auth.scope === MCP_SCOPE &&
+    auth.resource === MCP_RESOURCE &&
+    (auth.scope === MCP_SCOPE || (Array.isArray(auth.scope) && auth.scope.length === 1 && auth.scope[0] === MCP_SCOPE)) &&
     auth.codeChallengeMethod === 'S256' && typeof auth.codeChallenge === 'string' &&
     /^[A-Za-z0-9_-]{43}$/.test(auth.codeChallenge);
 }
