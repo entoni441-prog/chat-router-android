@@ -63,8 +63,14 @@ export async function handleGitHubAuthorization(request, env) {
   let consent;
   try {
     consent = await verifyConsentPost(env.OAUTH_KV, request);
-  } catch {
-    return error(400, 'consent-verification');
+  } catch (cause) {
+    // Only explicit fixed diagnostic codes are allowed in user-visible output.
+    const allowed = new Set([
+      'consent-cookie-missing', 'consent-csrf-missing', 'consent-not-approved',
+      'consent-kv-missing', 'consent-csrf-mismatch', 'consent-expired',
+    ]);
+    const stage = allowed.has(cause?.message) ? cause.message : 'consent-verification';
+    return error(400, stage);
   }
   if (!checkRequest(consent.authRequest, origin + '/mcp')) return error(400, 'consent-request');
   let claimed;
