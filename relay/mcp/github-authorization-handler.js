@@ -9,7 +9,7 @@ import { MCP_RESOURCE, MCP_SCOPE } from './github-owner-policy.js';
 
 const ORIGIN = 'https://chat-router-relay.entoni441.workers.dev';
 const COOKIE_CLEAR = '__Host-chat_router_consent=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0';
-const error = (status = 400, reason = 'rejected') => new Response('Authorization request rejected', { status, headers: { 'cache-control': 'no-store', 'x-chat-router-oauth-stage': reason } });
+const error = (status = 400, reason = 'rejected') => new Response(`Authorization request rejected\nDiagnostic stage: ${reason}`, { status, headers: { 'cache-control': 'no-store', 'content-type': 'text/plain; charset=utf-8', 'x-chat-router-oauth-stage': reason, 'x-content-type-options': 'nosniff' } });
 function checkRequest(auth, resource = MCP_RESOURCE) {
   return auth && typeof auth.clientId === 'string' && auth.clientId &&
     auth.resource === resource &&
