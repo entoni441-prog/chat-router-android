@@ -51,3 +51,19 @@ export async function handleMcp(request,env,context){
   await env.ROUTER_DB.prepare("UPDATE jobs SET status='cancelled' WHERE id=? AND status='queued'").bind(jobId).run();
   return send(id,{isError:true,content:[{type:'text',text:'Android response unavailable; retry'}]});
 }
+
+export async function runAndroidTool(env,name,args){
+ const jobId=crypto.randomUUID(),now=Date.now();
+ await env.ROUTER_DB.prepare("INSERT INTO jobs (id,tool,args,status,created_at,expires_at) VALUES (?,?,?,'queued',?,?)").bind(jobId,name,JSON.stringify(args),now,now+120000).run();
+ for(let i=0;i<26;i++){
+  await new Promise(resolve=>setTimeout(resolve,850));
+  const row=await env.ROUTER_DB.prepare('SELECT status,result,expires_at FROM jobs WHERE id=?').bind(jobId).first();
+  if(row?.status==='done'){
+   try{const data=JSON.parse(row.result);if(data?.jsonrpc==='2.0'&&data.id===jobId&&data.result?.content)return data.result;}catch{}
+   return {isError:true,content:[{type:'text',text:'Android tool failed'}]};
+  }
+  if(!row||row.expires_at<Date.now())break;
+ }
+ await env.ROUTER_DB.prepare("UPDATE jobs SET status='cancelled' WHERE id=? AND status='queued'").bind(jobId).run();
+ return {isError:true,content:[{type:'text',text:'Android response unavailable; retry'}]};
+}
