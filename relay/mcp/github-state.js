@@ -15,10 +15,10 @@ export async function stateDigest(value) {
   const hash = await crypto.subtle.digest('SHA-256', encoder.encode(value));
   return b64url(new Uint8Array(hash));
 }
-export async function beginGitHubTransaction(kv, { clientTransaction, requestedScope, requestedResource }) {
+export async function beginGitHubTransaction(kv, { clientTransaction, requestedScope, requestedResource, expectedResource = 'https://chat-router-relay.entoni441.workers.dev/mcp' }) {
   if (!kv || typeof clientTransaction !== 'string' || clientTransaction.length < 16 ||
       requestedScope !== 'beeper:read' ||
-      requestedResource !== 'https://chat-router-relay.entoni441.workers.dev/mcp') {
+      requestedResource !== expectedResource) {
     throw new Error('Invalid OAuth transaction');
   }
   const state = randomNonce();
