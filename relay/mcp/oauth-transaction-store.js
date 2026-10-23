@@ -6,12 +6,13 @@ const PREFIX = 'chat-router-auth-request:';
 const TTL = 300;
 const RESOURCE = 'https://chat-router-relay.entoni441.workers.dev/mcp';
 const SCOPE = 'beeper:read';
+const exactScope = scope => scope === SCOPE || (Array.isArray(scope) && scope.length === 1 && scope[0] === SCOPE);
 
 export async function storeApprovedAuthRequest(kv, { transactionId, authRequest, csrfValidated, consentApproved }) {
   if (!kv || typeof transactionId !== 'string' || !/^[A-Za-z0-9_-]{32,128}$/.test(transactionId) ||
       csrfValidated !== true || consentApproved !== true ||
       !authRequest || typeof authRequest.clientId !== 'string' || !authRequest.clientId ||
-      authRequest.resource !== RESOURCE || authRequest.scope !== SCOPE) {
+      authRequest.resource !== RESOURCE || !exactScope(authRequest.scope)) {
     throw new Error('Authorization request was not approved');
   }
   const record = {
@@ -21,7 +22,7 @@ export async function storeApprovedAuthRequest(kv, { transactionId, authRequest,
     codeChallenge: authRequest.codeChallenge,
     codeChallengeMethod: authRequest.codeChallengeMethod,
     resource: RESOURCE,
-    scope: SCOPE,
+    scope: authRequest.scope,
     consent: { approved: true, verified: true, transactionId },
   };
   // Keep the complete OAuthProvider parsed request, including optional fields,
@@ -40,7 +41,7 @@ export async function lookupApprovedAuthRequest(kv, transactionId, now = Date.no
   if (!Number.isSafeInteger(record.issuedAt) || record.issuedAt > now ||
       now - record.issuedAt >= TTL * 1000) return null;
   const auth = record.authRequest;
-  if (!auth || auth.resource !== RESOURCE || auth.scope !== SCOPE ||
+  if (!auth || auth.resource !== RESOURCE || !exactScope(auth.scope) ||
       auth.consent?.transactionId !== transactionId || auth.consent?.verified !== true) return null;
   return auth;
 }
