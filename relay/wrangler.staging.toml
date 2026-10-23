@@ -1,0 +1,25 @@
+# Isolated staging only. NEVER use this file for production deploys.
+# Deploy from relay/: npx wrangler deploy --config wrangler.staging.toml
+name = "chat-router-relay-staging"
+main = "src/oauth-entry.js"
+compatibility_date = "2026-10-20"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[vars]
+OAUTH_ORIGIN = "https://chat-router-relay-staging.entoni441.workers.dev"
+
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "39b20e97fbfe43d7aa090674f1a3743f"
+
+[[d1_databases]]
+binding = "ROUTER_DB"
+database_name = "chat-router-relay-staging"
+database_id = "e135858f-3e88-414a-8459-df69cb9d0455"
+
+# Required staging-only secrets, not committed:
+# CLIENT_TOKEN, DEVICE_TOKEN, GITHUB_CLIENT_ID,
+# GITHUB_CLIENT_SECRET, COOKIE_ENCRYPTION_KEY
+# GitHub OAuth app callback:
+# https://chat-router-relay-staging.entoni441.workers.dev/callback
