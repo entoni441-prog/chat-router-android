@@ -6,9 +6,9 @@ export const OWNER_GITHUB_USER_ID = 345764393;
 export const MCP_SCOPE = 'beeper:read';
 export const MCP_RESOURCE = 'https://chat-router-relay.entoni441.workers.dev/mcp';
 
-export function verifyGitHubOwner({ githubUser, githubApiVerified, requestedResource, requestedScopes, consent } = {}) {
+export function verifyGitHubOwner({ githubUser, githubApiVerified, requestedResource, requestedScopes, consent, expectedResource = MCP_RESOURCE } = {}) {
   if (githubApiVerified !== true || !githubUser || githubUser.id !== OWNER_GITHUB_USER_ID) return false;
-  if (requestedResource !== MCP_RESOURCE || !Array.isArray(requestedScopes) ||
+  if (requestedResource !== expectedResource || !Array.isArray(requestedScopes) ||
       requestedScopes.length !== 1 || requestedScopes[0] !== MCP_SCOPE) return false;
   if (!consent || consent.approved !== true || consent.verified !== true ||
       typeof consent.transactionId !== 'string' || consent.transactionId.length < 16) return false;
