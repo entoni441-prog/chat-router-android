@@ -18,3 +18,10 @@ for (const path of ['/poll', '/result', '/enqueue', '/jobs/123', '/health', '/un
 assert.equal((await routeChatRouterRequest(new Request('https://evil.example/mcp'), {}, {}, handlers)).status, 421);
 assert.equal(seen.length, 13);
 console.log('PASS: OAuth / legacy routing isolation (14 assertions)');
+
+const staging='https://chat-router-staging.example';
+const stagingResponse=await routeChatRouterRequest(new Request(staging+'/mcp'),{OAUTH_ORIGIN:staging},{},handlers);
+assert.equal(await stagingResponse.text(),'oauth');
+const wrongOrigin=await routeChatRouterRequest(new Request(base+'/mcp'),{OAUTH_ORIGIN:staging},{},handlers);
+assert.equal(wrongOrigin.status,421);
+console.log('PASS: staging origin override does not admit production origin');
