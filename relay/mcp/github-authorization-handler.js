@@ -32,7 +32,12 @@ export async function handleGitHubAuthorization(request, env) {
     let auth;
     try { auth = await env.OAUTH_PROVIDER.parseAuthRequest(request); }
     catch { return error(400, 'parse'); }
-    if (!checkRequest(auth, origin + '/mcp')) return error(400, 'request-validation');
+    if (!checkRequest(auth, origin + '/mcp')) {
+      const reason = auth?.resource !== origin + '/mcp' ? 'resource' :
+        auth?.scope !== MCP_SCOPE && !(Array.isArray(auth?.scope) && auth.scope.length === 1 && auth.scope[0] === MCP_SCOPE) ? 'scope' :
+        auth?.codeChallengeMethod !== 'S256' ? 'pkce-method' : 'pkce-challenge';
+      return error(400, reason);
+    }
     const client = await env.OAUTH_PROVIDER.lookupClient(auth.clientId);
     if (!client) return error(400, 'client-lookup');
     return createConsentChallenge(env.OAUTH_KV, auth, client.clientName || client.client_name || 'MCP client');
