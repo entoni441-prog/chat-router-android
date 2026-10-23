@@ -36,13 +36,14 @@ export async function verifyConsentPost(kv, request, now = Date.now()) {
     .find(s=>s.startsWith('__Host-chat_router_consent='));
   const nonce = cookie?.slice('__Host-chat_router_consent='.length);
   const csrf = form.get('csrf');
-  if (!nonce || typeof csrf !== 'string' || form.get('decision') !== 'approve') throw new Error('Consent denied');
+  if (!nonce) throw new Error('consent-cookie-missing');
+  if (typeof csrf !== 'string' || !csrf) throw new Error('consent-csrf-missing');
+  if (form.get('decision') !== 'approve') throw new Error('consent-not-approved');
   const raw = await kv.get('chat-router-consent:' + await digestConsentToken(nonce));
-  if (!raw) throw new Error('Consent expired');
+  if (!raw) throw new Error('consent-kv-missing');
   const record = JSON.parse(raw);
-  if (record.csrfHash !== await digestConsentToken(csrf) ||
-      !Number.isSafeInteger(record.issuedAt) || record.issuedAt > now ||
-      now - record.issuedAt >= 300000) throw new Error('Consent invalid');
+  if (record.csrfHash !== await digestConsentToken(csrf)) throw new Error('consent-csrf-mismatch');
+  if (!Number.isSafeInteger(record.issuedAt) || record.issuedAt > now || now - record.issuedAt >= 300000) throw new Error('consent-expired');
   // Caller must atomically redeem consent nonce (e.g. D1 replay barrier)
   // before beginning the GitHub redirect.
   return { authRequest: record.authRequest, nonceHash: await digestConsentToken(nonce), expiresAt: record.issuedAt + 300000 };
