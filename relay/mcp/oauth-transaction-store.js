@@ -8,11 +8,11 @@ const RESOURCE = 'https://chat-router-relay.entoni441.workers.dev/mcp';
 const SCOPE = 'beeper:read';
 const exactScope = scope => scope === SCOPE || (Array.isArray(scope) && scope.length === 1 && scope[0] === SCOPE);
 
-export async function storeApprovedAuthRequest(kv, { transactionId, authRequest, csrfValidated, consentApproved }) {
+export async function storeApprovedAuthRequest(kv, { transactionId, authRequest, csrfValidated, consentApproved, expectedResource = RESOURCE }) {
   if (!kv || typeof transactionId !== 'string' || !/^[A-Za-z0-9_-]{32,128}$/.test(transactionId) ||
       csrfValidated !== true || consentApproved !== true ||
       !authRequest || typeof authRequest.clientId !== 'string' || !authRequest.clientId ||
-      authRequest.resource !== RESOURCE || !exactScope(authRequest.scope)) {
+      authRequest.resource !== expectedResource || !exactScope(authRequest.scope)) {
     throw new Error('Authorization request was not approved');
   }
   const record = {
@@ -21,7 +21,7 @@ export async function storeApprovedAuthRequest(kv, { transactionId, authRequest,
     state: authRequest.state,
     codeChallenge: authRequest.codeChallenge,
     codeChallengeMethod: authRequest.codeChallengeMethod,
-    resource: RESOURCE,
+    resource: expectedResource,
     scope: authRequest.scope,
     consent: { approved: true, verified: true, transactionId },
   };
@@ -32,7 +32,7 @@ export async function storeApprovedAuthRequest(kv, { transactionId, authRequest,
   return transactionId;
 }
 
-export async function lookupApprovedAuthRequest(kv, transactionId, now = Date.now()) {
+export async function lookupApprovedAuthRequest(kv, transactionId, now = Date.now(), expectedResource = RESOURCE) {
   if (!kv || typeof transactionId !== 'string' || !/^[A-Za-z0-9_-]{32,128}$/.test(transactionId)) return null;
   const raw = await kv.get(PREFIX + transactionId);
   if (!raw) return null;
@@ -41,7 +41,7 @@ export async function lookupApprovedAuthRequest(kv, transactionId, now = Date.no
   if (!Number.isSafeInteger(record.issuedAt) || record.issuedAt > now ||
       now - record.issuedAt >= TTL * 1000) return null;
   const auth = record.authRequest;
-  if (!auth || auth.resource !== RESOURCE || !exactScope(auth.scope) ||
+  if (!auth || auth.resource !== expectedResource || !exactScope(auth.scope) ||
       auth.consent?.transactionId !== transactionId || auth.consent?.verified !== true) return null;
   return auth;
 }
