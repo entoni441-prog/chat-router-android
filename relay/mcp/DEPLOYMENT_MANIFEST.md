@@ -45,3 +45,14 @@ Do not deploy if any of the following are missing: real GitHub owner login, stat
 3. Deploy staging under its own Worker name; verify denial cases, PKCE, state replay, owner ID, consent, token audience and scope.
 4. Verify real MCP initialization, tool discovery and Android readback against a staging-compatible device queue.
 5. Only after passing these gates, plan a production change preserving all existing secrets and routes.
+
+
+## Staging infrastructure checkpoint — 2026-10-23
+- Dedicated Worker config: `relay/wrangler.staging.toml`, name `chat-router-relay-staging`.
+- Staging origin: `https://chat-router-relay-staging.entoni441.workers.dev`.
+- Dedicated KV `chat-router-oauth-staging` ID `39b20e97fbfe43d7aa090674f1a3743f`.
+- Dedicated D1 `chat-router-relay-staging` ID `e135858f-3e88-414a-8459-df69cb9d0455`.
+- Applied both `relay/schema.sql` (jobs queue) and `relay/mcp/migrations/001_oauth_state_redemptions.sql` to staging D1.
+- Environment-specific resource audience and callback checks added; staging audience tests passed at commit `2c80a9f`.
+- **Not deployed**: staging GitHub OAuth app credentials, unique staging CLIENT_TOKEN/DEVICE_TOKEN, COOKIE_ENCRYPTION_KEY and an Android poller pointed at staging are still needed.
+- Never copy production tokens to staging or switch a production Android device to staging without an explicit migration plan.
