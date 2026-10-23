@@ -1,0 +1,56 @@
+name: Staging MCP public protocol probe
+on:
+  push:
+    paths:
+      - .github/workflows/staging-mcp-public-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check public OAuth metadata and unauthenticated MCP
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, urllib.error
+          origin='https://chat-router-relay-staging.entoni441.workers.dev'
+          checks=[
+            ('oauth-resource','GET','/.well-known/oauth-protected-resource/mcp',None),
+            ('oauth-authorization','GET','/.well-known/oauth-authorization-server',None),
+            ('mcp-no-token','POST','/mcp',json.dumps({'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'staging-public-probe','version':'1'}}}).encode()),
+          ]
+          for name,method,path,body in checks:
+            headers={'Accept':'application/json'}
+            if body: headers['Content-Type']='application/json'
+            request=urllib.request.Request(origin+path,data=body,headers=headers,method=method)
+            try:
+              with urllib.request.urlopen(request,timeout=15) as response:
+                status=response.status
+                content_type=response.headers.get('Content-Type','').split(';')[0]
+                payload=response.read(8192)
+            except urllib.error.HTTPError as error:
+              status=error.code
+              content_type=error.headers.get('Content-Type','').split(';')[0]
+              payload=error.read(8192)
+            except Exception as error:
+              print(f'{name}: transport_error={type(error).__name__}')
+              raise
+            safe={'check':name,'status':status,'content_type':content_type}
+            if name!='mcp-no-token' and status==200 and content_type=='application/json':
+              try:
+                obj=json.loads(payload)
+                safe['keys']=sorted(obj.keys())
+                safe['has_authorization_servers']=bool(obj.get('authorization_servers'))
+                safe['has_token_endpoint']=bool(obj.get('token_endpoint'))
+                safe['has_registration_endpoint']=bool(obj.get('registration_endpoint'))
+              except (ValueError,TypeError):
+                safe['json_valid']=False
+            print(json.dumps(safe,sort_keys=True))
+            if name=='mcp-no-token' and status!=401:
+              raise SystemExit('Unexpected unauthenticated MCP status')
+            if name!='mcp-no-token' and status!=200:
+              raise SystemExit('OAuth metadata unavailable')
+          PY
