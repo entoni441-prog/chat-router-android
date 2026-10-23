@@ -27,3 +27,18 @@ jobs:
           echo
           echo "=== Authorization server metadata ==="
           curl -sS -i --max-time 20 -w '\nHTTP %{http_code}\n' "$base/.well-known/oauth-authorization-server" || true
+
+      - name: Inspect tracked repository paths (read-only)
+        uses: actions/checkout@v4
+      - name: List deployment configuration candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== Tracked files ==='
+          git ls-files
+          echo '=== Wrangler config candidates ==='
+          find . -type f \( -name 'wrangler.toml' -o -name 'wrangler.json' -o -name 'wrangler.jsonc' \) -not -path './node_modules/*' -print
+          echo '=== Config contents (redact secrets) ==='
+          find . -type f \( -name 'wrangler.toml' -o -name 'wrangler.json' -o -name 'wrangler.jsonc' \) -not -path './node_modules/*' -exec sh -c 'echo "--- $1"; sed -E "s/(token|secret|password|key)([[:space:]]*[:=][[:space:]]*).*/\\1\\2[REDACTED]/Ig" "$1"' sh {} \;
+          echo '=== Package deployment scripts ==='
+          find . -name package.json -not -path '*/node_modules/*' -maxdepth 5 -exec sh -c 'echo "--- $1"; node -e "const p=require(process.argv[1]); console.log(JSON.stringify({name:p.name,scripts:p.scripts},null,2))" "$(realpath "$1")"' sh {} \;
