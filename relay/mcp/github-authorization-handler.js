@@ -10,9 +10,9 @@ import { MCP_RESOURCE, MCP_SCOPE } from './github-owner-policy.js';
 const ORIGIN = 'https://chat-router-relay.entoni441.workers.dev';
 const COOKIE_CLEAR = '__Host-chat_router_consent=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0';
 const error = (status = 400) => new Response('Authorization request rejected', { status, headers: { 'cache-control': 'no-store' } });
-function checkRequest(auth) {
+function checkRequest(auth, resource = MCP_RESOURCE) {
   return auth && typeof auth.clientId === 'string' && auth.clientId &&
-    auth.resource === MCP_RESOURCE &&
+    auth.resource === resource &&
     (auth.scope === MCP_SCOPE || (Array.isArray(auth.scope) && auth.scope.length === 1 && auth.scope[0] === MCP_SCOPE)) &&
     auth.codeChallengeMethod === 'S256' && typeof auth.codeChallenge === 'string' &&
     /^[A-Za-z0-9_-]{43}$/.test(auth.codeChallenge);
@@ -32,7 +32,7 @@ export async function handleGitHubAuthorization(request, env) {
     let auth;
     try { auth = await env.OAUTH_PROVIDER.parseAuthRequest(request); }
     catch { return error(); }
-    if (!checkRequest(auth)) return error();
+    if (!checkRequest(auth, origin + '/mcp')) return error();
     const client = await env.OAUTH_PROVIDER.lookupClient(auth.clientId);
     if (!client) return error();
     return createConsentChallenge(env.OAUTH_KV, auth, client.clientName || client.client_name || 'MCP client');
@@ -40,7 +40,7 @@ export async function handleGitHubAuthorization(request, env) {
   if (request.method !== 'POST') return error(405);
   try {
     const consent = await verifyConsentPost(env.OAUTH_KV, request);
-    if (!checkRequest(consent.authRequest)) return error();
+    if (!checkRequest(consent.authRequest, origin + '/mcp')) return error();
     const claimed = await redeemStateOnce(env.ROUTER_DB, consent.nonceHash, consent.expiresAt);
     if (!claimed) return error(409);
     const transactionId = randomNonce();
@@ -48,7 +48,7 @@ export async function handleGitHubAuthorization(request, env) {
       transactionId, authRequest: consent.authRequest, csrfValidated: true, consentApproved: true,
     });
     const { state, cookie } = await beginGitHubTransaction(env.OAUTH_KV, {
-      clientTransaction: transactionId, requestedScope: MCP_SCOPE, requestedResource: MCP_RESOURCE,
+      clientTransaction: transactionId, requestedScope: MCP_SCOPE, requestedResource: origin + '/mcp', expectedResource: origin + '/mcp',
     });
     const target = new URL('https://github.com/login/oauth/authorize');
     target.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
