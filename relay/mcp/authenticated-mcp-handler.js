@@ -48,7 +48,7 @@ export function createAuthenticatedMcpHandler() {
               const current = getMcpAuthContext();
               if (current?.props?.ownerId !== OWNER_GITHUB_USER_ID ||
                   current?.props?.resource !== resource ||
-                  !Array.isArray(authInfo?.scopes) || !authInfo.scopes.includes(MCP_SCOPE)) {
+                  (authInfo?.scopes != null && (!Array.isArray(authInfo.scopes) || !authInfo.scopes.includes(MCP_SCOPE)))) {
                 return {isError:true,content:[{type:'text',text:'Forbidden'}]};
               }
               return runAndroidTool(env, tool.name, args);
