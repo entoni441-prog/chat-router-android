@@ -31,7 +31,7 @@ export async function githubCallback(request, env, oauthProvider, { lookupTransa
       oauthKv: env.OAUTH_KV, db: env.ROUTER_DB, state, cookieNonce,
     });
     const authRequest = await lookupTransaction(tx.clientTransaction);
-    if (!authRequest || authRequest.resource !== MCP_RESOURCE ||
+    if (!authRequest || authRequest.resource !== callback.replace(/\/callback$/, '/mcp') ||
         !(authRequest.scope === MCP_SCOPE || (Array.isArray(authRequest.scope) && authRequest.scope.length === 1 && authRequest.scope[0] === MCP_SCOPE)) || !authRequest.clientId) return fail(403);
     // Consent must be bound to this exact OAuth transaction, not just a cookie.
     const consent = authRequest.consent;
@@ -43,13 +43,13 @@ export async function githubCallback(request, env, oauthProvider, { lookupTransa
     });
     const githubUser = await fetchVerifiedGitHubUser({ token: githubToken });
     if (!verifyGitHubOwner({
-      githubUser, githubApiVerified: true, requestedResource: MCP_RESOURCE,
+      githubUser, githubApiVerified: true, requestedResource: callback.replace(/\/callback$/, '/mcp'), expectedResource: callback.replace(/\/callback$/, '/mcp'),
       requestedScopes: [MCP_SCOPE], consent,
     })) return fail(403);
     // Never put the upstream GitHub access token in the downstream MCP token.
     const { redirectTo } = await oauthProvider.completeAuthorization({
       request: authRequest, userId: String(githubUser.id),
-      scope: [MCP_SCOPE], props: { ownerId: githubUser.id, resource: MCP_RESOURCE },
+      scope: [MCP_SCOPE], props: { ownerId: githubUser.id, resource: callback.replace(/\/callback$/, '/mcp') },
       metadata: { label: 'Chat Router owner' },
     });
     const target = new URL(redirectTo);
