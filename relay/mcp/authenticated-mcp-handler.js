@@ -15,6 +15,16 @@ const shapes = {
 export function createAuthenticatedMcpHandler() {
   return {
     fetch(request, env, ctx) {
+      // Staging-only diagnostics: no credentials, cookies, request bodies or tool arguments.
+      const diagnostic = (env?.OAUTH_ORIGIN || '').includes('chat-router-relay-staging.');
+      const started = Date.now();
+      if (diagnostic) console.log('mcp_probe', JSON.stringify({
+        phase: 'request', method: request.method,
+        accept: request.headers.get('accept') || '',
+        contentType: request.headers.get('content-type') || '',
+        protocolVersion: request.headers.get('mcp-protocol-version') || '',
+        hasSession: !!request.headers.get('mcp-session-id'),
+      }));
       const handler = createMcpHandler(() => {
         const auth = getMcpAuthContext();
         const scopes = auth?.scope;
@@ -23,6 +33,12 @@ export function createAuthenticatedMcpHandler() {
           auth?.props?.resource === resource &&
           Array.isArray(scopes) && scopes.includes(MCP_SCOPE);
         const server = new McpServer({name:'chat-router',version:'1.0.0'});
+        if (diagnostic) console.log('mcp_probe', JSON.stringify({
+          phase: 'registration', ownerMatches: auth?.props?.ownerId === OWNER_GITHUB_USER_ID,
+          resourceMatches: auth?.props?.resource === resource,
+          scopeIsArray: Array.isArray(scopes), hasReadScope: Array.isArray(scopes) && scopes.includes(MCP_SCOPE),
+          allowed, toolCount: allowed ? TOOLS.length : 0,
+        }));
         if (allowed) {
           for (const tool of TOOLS) {
             server.registerTool(tool.name, {description:tool.description,inputSchema:shapes[tool.name]}, async args => {
@@ -38,7 +54,19 @@ export function createAuthenticatedMcpHandler() {
         }
         return server;
       });
-      return handler(request, env, ctx);
+      return Promise.resolve().then(() => handler(request, env, ctx)).then(response => {
+        if (diagnostic) console.log('mcp_probe', JSON.stringify({
+          phase: 'response', status: response.status,
+          contentType: response.headers.get('content-type') || '',
+          durationMs: Date.now() - started,
+        }));
+        return response;
+      }, error => {
+        if (diagnostic) console.log('mcp_probe', JSON.stringify({
+          phase: 'error', errorType: error?.name || 'Error',
+        }));
+        throw error;
+      });
     },
   };
 }
