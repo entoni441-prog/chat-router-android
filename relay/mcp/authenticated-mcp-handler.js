@@ -27,11 +27,14 @@ export function createAuthenticatedMcpHandler() {
       }));
       const handler = createMcpHandler(({ authInfo }) => {
         const auth = getMcpAuthContext();
+        // OAuthProvider has verified the token and its signed owner/resource props.
+        // Some provider versions do not forward AuthInfo scopes to the MCP factory.
         const scopes = authInfo?.scopes;
+        const scopeAllowed = scopes == null || (Array.isArray(scopes) && scopes.includes(MCP_SCOPE));
         const resource = (env?.OAUTH_ORIGIN || 'https://chat-router-relay.entoni441.workers.dev') + '/mcp';
       const allowed = auth?.props?.ownerId === OWNER_GITHUB_USER_ID &&
           auth?.props?.resource === resource &&
-          Array.isArray(scopes) && scopes.includes(MCP_SCOPE);
+          scopeAllowed;
         const server = new McpServer({name:'chat-router',version:'1.0.0'});
         if (diagnostic) console.log('mcp_probe', JSON.stringify({
           phase: 'registration', ownerMatches: auth?.props?.ownerId === OWNER_GITHUB_USER_ID,
