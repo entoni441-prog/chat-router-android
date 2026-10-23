@@ -24,7 +24,7 @@ export async function handleGitHubAuthorization(request, env) {
   if (!env?.OAUTH_PROVIDER || !env?.OAUTH_KV || !env?.ROUTER_DB || !env?.GITHUB_CLIENT_ID) return error(503);
   if (url.pathname === '/callback') {
     return githubCallback(request, env, env.OAUTH_PROVIDER, {
-      lookupTransaction: id => lookupApprovedAuthRequest(env.OAUTH_KV, id),
+      lookupTransaction: id => lookupApprovedAuthRequest(env.OAUTH_KV, id, Date.now(), origin + '/mcp'),
     });
   }
   if (url.pathname !== '/authorize') return error(404);
@@ -45,7 +45,7 @@ export async function handleGitHubAuthorization(request, env) {
     if (!claimed) return error(409);
     const transactionId = randomNonce();
     await storeApprovedAuthRequest(env.OAUTH_KV, {
-      transactionId, authRequest: consent.authRequest, csrfValidated: true, consentApproved: true,
+      transactionId, authRequest: consent.authRequest, csrfValidated: true, consentApproved: true, expectedResource: origin + '/mcp',
     });
     const { state, cookie } = await beginGitHubTransaction(env.OAUTH_KV, {
       clientTransaction: transactionId, requestedScope: MCP_SCOPE, requestedResource: origin + '/mcp', expectedResource: origin + '/mcp',
