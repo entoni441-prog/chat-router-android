@@ -17,7 +17,8 @@ export async function githubCallback(request, env, oauthProvider, { lookupTransa
       !env?.GITHUB_CLIENT_SECRET || !oauthProvider?.completeAuthorization ||
       typeof lookupTransaction !== 'function') return fail(503);
   const url = new URL(request.url);
-  if (url.origin !== new URL(CALLBACK).origin) return fail(400);
+  const callback = (env?.OAUTH_ORIGIN || new URL(CALLBACK).origin) + '/callback';
+  if (url.origin !== new URL(callback).origin) return fail(400);
   const state = url.searchParams.get('state');
   const code = url.searchParams.get('code');
   const cookies = request.headers.get('cookie') || '';
@@ -38,7 +39,7 @@ export async function githubCallback(request, env, oauthProvider, { lookupTransa
         consent.transactionId !== tx.clientTransaction) return fail(403);
     const githubToken = await exchangeGitHubCode({
       code, clientId: env.GITHUB_CLIENT_ID,
-      clientSecret: env.GITHUB_CLIENT_SECRET, redirectUri: CALLBACK,
+      clientSecret: env.GITHUB_CLIENT_SECRET, redirectUri: callback,
     });
     const githubUser = await fetchVerifiedGitHubUser({ token: githubToken });
     if (!verifyGitHubOwner({
