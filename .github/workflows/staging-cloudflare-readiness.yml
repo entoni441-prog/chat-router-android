@@ -1,0 +1,37 @@
+name: Staging Cloudflare deploy readiness
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/staging-cloudflare-readiness.yml
+permissions:
+  contents: read
+  issues: write
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check secret presence without disclosure
+        shell: bash
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "present" > /tmp/cloudflare-token-state
+          else
+            echo "missing" > /tmp/cloudflare-token-state
+          fi
+      - name: Report readiness
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,os,urllib.request
+          from pathlib import Path
+          state=Path('/tmp/cloudflare-token-state').read_text().strip()
+          body='Staging Cloudflare deployment readiness: CLOUDFLARE_API_TOKEN='+state+'; run '+os.environ['GITHUB_RUN_ID']+'. Read-only check; no Worker deployment.'
+          req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/issues/1/comments',data=json.dumps({'body':body}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json','User-Agent':'ChatRouterStagingProbe/1.0'},method='POST')
+          with urllib.request.urlopen(req,timeout=20) as response:
+            print('Readiness report status:',response.status)
+          PY
