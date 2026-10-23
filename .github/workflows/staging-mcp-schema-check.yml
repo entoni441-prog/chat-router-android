@@ -31,7 +31,7 @@ jobs:
           npm test > /tmp/test.log 2>&1
           test_status=$?
           if [ "$test_status" -ne 0 ]; then echo 'test' > /tmp/staging-failed-stage; exit "$test_status"; fi
-          npx wrangler deploy ./src/oauth-entry.js --dry-run --outdir dist --name chat-router-relay-staging --compatibility-date 2026-10-20 --compatibility-flags nodejs_compat --no-bundle > /tmp/build.log 2>&1
+          npx wrangler deploy ./src/oauth-entry.js --dry-run --outdir dist --name chat-router-relay-staging --compatibility-date 2026-10-20 --compatibility-flags nodejs_compat > /tmp/build.log 2>&1
           build_status=$?
           if [ "$build_status" -ne 0 ]; then
             echo 'build' > /tmp/staging-failed-stage
