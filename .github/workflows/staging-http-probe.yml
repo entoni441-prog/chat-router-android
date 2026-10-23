@@ -1,0 +1,29 @@
+name: Staging public HTTP metadata probe
+on:
+  push:
+    branches: [fix/staging-mcp-verified-scopes]
+    paths: [.github/workflows/staging-http-probe.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check unauthenticated MCP and OAuth metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://chat-router-relay-staging.entoni441.workers.dev"
+          echo "=== MCP POST without bearer ==="
+          curl -sS -i --max-time 20 -X POST "$base/mcp" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"staging-http-probe","version":"1"}}}' || true
+          echo
+          echo "=== Protected resource metadata ==="
+          curl -sS -i --max-time 20 "$base/.well-known/oauth-protected-resource" || true
+          echo
+          echo "=== Protected resource MCP-path metadata ==="
+          curl -sS -i --max-time 20 "$base/.well-known/oauth-protected-resource/mcp" || true
+          echo
+          echo "=== Authorization server metadata ==="
+          curl -sS -i --max-time 20 "$base/.well-known/oauth-authorization-server" || true
