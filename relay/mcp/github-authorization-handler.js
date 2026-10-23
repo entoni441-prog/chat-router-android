@@ -9,7 +9,7 @@ import { MCP_RESOURCE, MCP_SCOPE } from './github-owner-policy.js';
 
 const ORIGIN = 'https://chat-router-relay.entoni441.workers.dev';
 const COOKIE_CLEAR = '__Host-chat_router_consent=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0';
-const error = (status = 400) => new Response('Authorization request rejected', { status, headers: { 'cache-control': 'no-store' } });
+const error = (status = 400, reason = 'rejected') => new Response('Authorization request rejected', { status, headers: { 'cache-control': 'no-store', 'x-chat-router-oauth-stage': reason } });
 function checkRequest(auth, resource = MCP_RESOURCE) {
   return auth && typeof auth.clientId === 'string' && auth.clientId &&
     auth.resource === resource &&
@@ -31,10 +31,10 @@ export async function handleGitHubAuthorization(request, env) {
   if (request.method === 'GET') {
     let auth;
     try { auth = await env.OAUTH_PROVIDER.parseAuthRequest(request); }
-    catch { return error(); }
-    if (!checkRequest(auth, origin + '/mcp')) return error();
+    catch { return error(400, 'parse'); }
+    if (!checkRequest(auth, origin + '/mcp')) return error(400, 'request-validation');
     const client = await env.OAUTH_PROVIDER.lookupClient(auth.clientId);
-    if (!client) return error();
+    if (!client) return error(400, 'client-lookup');
     return createConsentChallenge(env.OAUTH_KV, auth, client.clientName || client.client_name || 'MCP client');
   }
   if (request.method !== 'POST') return error(405);
