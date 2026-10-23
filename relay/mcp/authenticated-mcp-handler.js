@@ -25,9 +25,9 @@ export function createAuthenticatedMcpHandler() {
         protocolVersion: request.headers.get('mcp-protocol-version') || '',
         hasSession: !!request.headers.get('mcp-session-id'),
       }));
-      const handler = createMcpHandler(() => {
+      const handler = createMcpHandler(({ authInfo }) => {
         const auth = getMcpAuthContext();
-        const scopes = auth?.scope;
+        const scopes = authInfo?.scopes;
         const resource = (env?.OAUTH_ORIGIN || 'https://chat-router-relay.entoni441.workers.dev') + '/mcp';
       const allowed = auth?.props?.ownerId === OWNER_GITHUB_USER_ID &&
           auth?.props?.resource === resource &&
@@ -45,7 +45,7 @@ export function createAuthenticatedMcpHandler() {
               const current = getMcpAuthContext();
               if (current?.props?.ownerId !== OWNER_GITHUB_USER_ID ||
                   current?.props?.resource !== resource ||
-                  !Array.isArray(current?.scope) || !current.scope.includes(MCP_SCOPE)) {
+                  !Array.isArray(authInfo?.scopes) || !authInfo.scopes.includes(MCP_SCOPE)) {
                 return {isError:true,content:[{type:'text',text:'Forbidden'}]};
               }
               return runAndroidTool(env, tool.name, args);
