@@ -66,7 +66,7 @@ jobs:
           import json,os,urllib.request
           from pathlib import Path
           stage=Path('/tmp/staging-failed-stage').read_text().strip() if Path('/tmp/staging-failed-stage').exists() else 'workflow'
-          body='Staging MCP schema verification: '+os.environ['JOB_RESULT']+'; stage='+stage+' (commit '+os.environ['GITHUB_SHA'][:12]+'). No production deployment performed.'
+          body='Staging MCP schema verification: '+os.environ['JOB_RESULT']+'; stage='+stage+' (commit '+os.environ['GITHUB_SHA'][:12]+', run '+os.environ['GITHUB_RUN_ID']+'). No production deployment performed.'
           if os.environ['JOB_RESULT']=='success' and Path('/tmp/staging-artifact-sha256').exists():
             body+='\\nArtifact SHA-256: '+Path('/tmp/staging-artifact-sha256').read_text().strip()
           if stage=='build' and Path('/tmp/staging-build-errors').exists():
