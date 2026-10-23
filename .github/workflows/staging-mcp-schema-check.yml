@@ -24,9 +24,17 @@ jobs:
         id: verify
         shell: bash
         run: |
-          npm install --no-package-lock --ignore-scripts
-          npm test
-          npm run build
+          set +e
+          npm install --no-package-lock --ignore-scripts > /tmp/install.log 2>&1
+          install_status=$?
+          if [ "$install_status" -ne 0 ]; then echo 'install' > /tmp/staging-failed-stage; exit "$install_status"; fi
+          npm test > /tmp/test.log 2>&1
+          test_status=$?
+          if [ "$test_status" -ne 0 ]; then echo 'test' > /tmp/staging-failed-stage; exit "$test_status"; fi
+          npm run build > /tmp/build.log 2>&1
+          build_status=$?
+          if [ "$build_status" -ne 0 ]; then echo 'build' > /tmp/staging-failed-stage; exit "$build_status"; fi
+          echo 'none' > /tmp/staging-failed-stage
       - name: Publish sanitized verification result
         if: always()
         env:
@@ -35,7 +43,9 @@ jobs:
         run: |
           python3 - <<'PY'
           import json,os,urllib.request
-          body='Staging MCP schema verification: '+os.environ['JOB_RESULT']+' (commit '+os.environ['GITHUB_SHA'][:12]+'). No production deployment performed.'
+          from pathlib import Path
+          stage=Path('/tmp/staging-failed-stage').read_text().strip() if Path('/tmp/staging-failed-stage').exists() else 'workflow'
+          body='Staging MCP schema verification: '+os.environ['JOB_RESULT']+'; stage='+stage+' (commit '+os.environ['GITHUB_SHA'][:12]+'). No production deployment performed.'
           req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/issues/1/comments',data=json.dumps({'body':body}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json','User-Agent':'ChatRouterStagingProbe/1.0'},method='POST')
           with urllib.request.urlopen(req,timeout=20) as response:
             print('Verification report status:',response.status)
