@@ -8,7 +8,8 @@ const LEGACY_PATHS = new Set(['/poll', '/result', '/enqueue', '/health']);
 export function routeChatRouterRequest(request, env, ctx, { legacy, oauth }) {
   if (!legacy?.fetch || !oauth?.fetch) throw new Error('Both handlers are required');
   const url = new URL(request.url);
-  if (url.origin !== 'https://chat-router-relay.entoni441.workers.dev') {
+  const expectedOrigin = env?.OAUTH_ORIGIN || 'https://chat-router-relay.entoni441.workers.dev';
+  if (url.origin !== expectedOrigin) {
     return new Response('Misdirected request', { status: 421 });
   }
   const path = url.pathname;
