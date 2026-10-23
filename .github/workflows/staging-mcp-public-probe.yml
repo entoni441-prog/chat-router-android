@@ -28,7 +28,7 @@ jobs:
           ]
           failures=[]
           for name,method,path,body in checks:
-            headers={'Accept':'application/json'}
+            headers={'Accept':'application/json','User-Agent':'ChatRouterStagingProbe/1.0 (+https://github.com/entoni441-prog/chat-router-android)'}
             if body: headers['Content-Type']='application/json'
             request=urllib.request.Request(origin+path,data=body,headers=headers,method=method)
             try:
