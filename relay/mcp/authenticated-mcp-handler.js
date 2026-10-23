@@ -18,8 +18,9 @@ export function createAuthenticatedMcpHandler() {
       const handler = createMcpHandler(() => {
         const auth = getMcpAuthContext();
         const scopes = auth?.scope;
-        const allowed = auth?.props?.ownerId === OWNER_GITHUB_USER_ID &&
-          auth?.props?.resource === MCP_RESOURCE &&
+        const resource = (env?.OAUTH_ORIGIN || 'https://chat-router-relay.entoni441.workers.dev') + '/mcp';
+      const allowed = auth?.props?.ownerId === OWNER_GITHUB_USER_ID &&
+          auth?.props?.resource === resource &&
           Array.isArray(scopes) && scopes.includes(MCP_SCOPE);
         const server = new McpServer({name:'chat-router',version:'1.0.0'});
         if (allowed) {
@@ -27,7 +28,7 @@ export function createAuthenticatedMcpHandler() {
             server.registerTool(tool.name, {description:tool.description,inputSchema:shapes[tool.name]}, async args => {
               const current = getMcpAuthContext();
               if (current?.props?.ownerId !== OWNER_GITHUB_USER_ID ||
-                  current?.props?.resource !== MCP_RESOURCE ||
+                  current?.props?.resource !== resource ||
                   !Array.isArray(current?.scope) || !current.scope.includes(MCP_SCOPE)) {
                 return {isError:true,content:[{type:'text',text:'Forbidden'}]};
               }
