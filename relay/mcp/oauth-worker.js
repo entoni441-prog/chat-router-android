@@ -17,6 +17,8 @@ export function createChatRouterWorker({ legacyHandler, mcpHandler }) {
     tokenEndpoint: '/token',
     clientRegistrationEndpoint: '/register',
     allowPlainPKCE: false,
+    // Advertise the required read-only scope for OAuth client discovery.
+    scopesSupported: ['beeper:read'],
   });
   return {
     fetch(request, env, ctx) {
