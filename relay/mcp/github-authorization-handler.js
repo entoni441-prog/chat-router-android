@@ -10,6 +10,21 @@ import { MCP_RESOURCE, MCP_SCOPE } from './github-owner-policy.js';
 const ORIGIN = 'https://chat-router-relay.entoni441.workers.dev';
 const COOKIE_CLEAR = '__Host-chat_router_consent=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0';
 const error = (status = 400, reason = 'rejected') => new Response(`Authorization request rejected\nDiagnostic stage: ${reason}`, { status, headers: { 'cache-control': 'no-store', 'content-type': 'text/plain; charset=utf-8', 'x-chat-router-oauth-stage': reason, 'x-content-type-options': 'nosniff' } });
+// OAuth clients may omit the optional scope parameter. In that case the
+// only supported permission is explicitly assigned before consent and storage.
+// Never replace an explicit unknown or broader scope.
+function normalizeRequestedScope(auth) {
+  if (!auth || typeof auth !== 'object') return auth;
+  if (auth.scope === undefined || auth.scope === null ||
+      auth.scope === '' || (Array.isArray(auth.scope) && auth.scope.length === 0)) {
+    return { ...auth, scope: [MCP_SCOPE] };
+  }
+  if (auth.scope === MCP_SCOPE || (Array.isArray(auth.scope) &&
+      auth.scope.length === 1 && auth.scope[0] === MCP_SCOPE)) {
+    return { ...auth, scope: [MCP_SCOPE] };
+  }
+  return auth;
+}
 function checkRequest(auth, resource = MCP_RESOURCE) {
   return auth && typeof auth.clientId === 'string' && auth.clientId &&
     auth.resource === resource &&
@@ -30,7 +45,7 @@ export async function handleGitHubAuthorization(request, env) {
   if (url.pathname !== '/authorize') return error(404);
   if (request.method === 'GET') {
     let auth;
-    try { auth = await env.OAUTH_PROVIDER.parseAuthRequest(request); }
+    try { auth = normalizeRequestedScope(await env.OAUTH_PROVIDER.parseAuthRequest(request)); }
     catch { return error(400, 'parse'); }
     if (!checkRequest(auth, origin + '/mcp')) {
       const reason = auth?.resource !== origin + '/mcp' ? 'resource' :
