@@ -49,3 +49,5 @@ jobs:
           }
           JSON
           npx wrangler deploy --config ../staging-bundle/wrangler.json --keep-vars
+
+# Staging-only workflow activation.
