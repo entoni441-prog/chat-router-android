@@ -56,7 +56,11 @@ jobs:
                 obj=json.loads(payload)
                 safe['json_keys']=sorted(obj.keys()) if isinstance(obj,dict) else []
                 if isinstance(obj,dict):
-                  safe['error_code']=obj.get('code') if isinstance(obj.get('code'),int) else None
+                  safe['error_code']=obj.get('error_code') if isinstance(obj.get('error_code'),(str,int)) else None
+                  safe['error_category']=obj.get('error_category') if isinstance(obj.get('error_category'),str) else None
+                  safe['error_name']=obj.get('error_name') if isinstance(obj.get('error_name'),str) else None
+                  safe['owner_action_required']=obj.get('owner_action_required') if isinstance(obj.get('owner_action_required'),bool) else None
+                  safe['retryable']=obj.get('retryable') if isinstance(obj.get('retryable'),bool) else None
               except (ValueError,TypeError):
                 safe['json_valid']=False
             if name!='mcp-no-token' and status==200 and content_type=='application/json':
@@ -86,7 +90,7 @@ jobs:
             try:
               obj=json.loads(line)
               if isinstance(obj,dict) and obj.get('check') in ('oauth-resource','oauth-authorization','mcp-no-token'):
-                safe.append({key:obj.get(key) for key in ('check','status','content_type','server','cf_ray_present','cf_mitigated','www_authenticate_present','body_is_html','json_keys','error_code') if key in obj})
+                safe.append({key:obj.get(key) for key in ('check','status','content_type','server','cf_ray_present','cf_mitigated','www_authenticate_present','body_is_html','json_keys','error_code','error_category','error_name','owner_action_required','retryable') if key in obj})
             except (ValueError,TypeError):
               pass
           body='Automated staging probe. Exit: '+os.environ['PROBE_EXIT']+'\\n\\n'+'\\n'.join('\\x60'+json.dumps(x,sort_keys=True)+'\\x60' for x in safe)
