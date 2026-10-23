@@ -58,29 +58,46 @@ export async function handleGitHubAuthorization(request, env) {
     return createConsentChallenge(env.OAUTH_KV, auth, client.clientName || client.client_name || 'MCP client');
   }
   if (request.method !== 'POST') return error(405);
+  // Keep diagnostics free of OAuth values, tokens, cookies and user identifiers.
+  // Distinguish a denied/expired consent from a storage or redirect failure.
+  let consent;
   try {
-    const consent = await verifyConsentPost(env.OAUTH_KV, request);
-    if (!checkRequest(consent.authRequest, origin + '/mcp')) return error();
-    const claimed = await redeemStateOnce(env.ROUTER_DB, consent.nonceHash, consent.expiresAt);
-    if (!claimed) return error(409);
-    const transactionId = randomNonce();
+    consent = await verifyConsentPost(env.OAUTH_KV, request);
+  } catch {
+    return error(400, 'consent-verification');
+  }
+  if (!checkRequest(consent.authRequest, origin + '/mcp')) return error(400, 'consent-request');
+  let claimed;
+  try {
+    claimed = await redeemStateOnce(env.ROUTER_DB, consent.nonceHash, consent.expiresAt);
+  } catch {
+    return error(503, 'd1-redemption');
+  }
+  if (!claimed) return error(409, 'consent-replayed-or-expired');
+  const transactionId = randomNonce();
+  try {
     await storeApprovedAuthRequest(env.OAUTH_KV, {
       transactionId, authRequest: consent.authRequest, csrfValidated: true, consentApproved: true, expectedResource: origin + '/mcp',
     });
-    const { state, cookie } = await beginGitHubTransaction(env.OAUTH_KV, {
+  } catch {
+    return error(503, 'kv-approved-request');
+  }
+  let githubTransaction;
+  try {
+    githubTransaction = await beginGitHubTransaction(env.OAUTH_KV, {
       clientTransaction: transactionId, requestedScope: MCP_SCOPE, requestedResource: origin + '/mcp', expectedResource: origin + '/mcp',
     });
-    const target = new URL('https://github.com/login/oauth/authorize');
-    target.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
-    target.searchParams.set('redirect_uri', origin + '/callback');
-    target.searchParams.set('scope', 'read:user');
-    target.searchParams.set('state', state);
-    const headers = new Headers({ location: target.href, 'cache-control': 'no-store' });
-    headers.append('set-cookie', COOKIE_CLEAR);
-    headers.append('set-cookie', cookie);
-    return new Response(null, { status: 302, headers });
   } catch {
-    return error();
+    return error(503, 'kv-github-transaction');
   }
+  const target = new URL('https://github.com/login/oauth/authorize');
+  target.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
+  target.searchParams.set('redirect_uri', origin + '/callback');
+  target.searchParams.set('scope', 'read:user');
+  target.searchParams.set('state', githubTransaction.state);
+  const headers = new Headers({ location: target.href, 'cache-control': 'no-store' });
+  headers.append('set-cookie', COOKIE_CLEAR);
+  headers.append('set-cookie', githubTransaction.cookie);
+  return new Response(null, { status: 303, headers });
 }
 export const GitHubAuthorizationHandler = { fetch: handleGitHubAuthorization };
