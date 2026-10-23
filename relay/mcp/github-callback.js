@@ -31,7 +31,7 @@ export async function githubCallback(request, env, oauthProvider, { lookupTransa
     });
     const authRequest = await lookupTransaction(tx.clientTransaction);
     if (!authRequest || authRequest.resource !== MCP_RESOURCE ||
-        authRequest.scope !== MCP_SCOPE || !authRequest.clientId) return fail(403);
+        !(authRequest.scope === MCP_SCOPE || (Array.isArray(authRequest.scope) && authRequest.scope.length === 1 && authRequest.scope[0] === MCP_SCOPE)) || !authRequest.clientId) return fail(403);
     // Consent must be bound to this exact OAuth transaction, not just a cookie.
     const consent = authRequest.consent;
     if (!consent || consent.approved !== true || consent.verified !== true ||
