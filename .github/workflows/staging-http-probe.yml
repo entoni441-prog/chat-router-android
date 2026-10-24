@@ -28,6 +28,17 @@ jobs:
           echo "=== Authorization server metadata ==="
           curl -sS -i --max-time 20 -w '\nHTTP %{http_code}\n' "$base/.well-known/oauth-authorization-server" || true
 
+      - name: Check unauthenticated Android poll on both workers
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Poll control UTC start: $(date -u +%FT%TZ) ==="
+          for host in chat-router-relay-staging.entoni441.workers.dev chat-router-relay.entoni441.workers.dev; do
+            echo "=== GET /poll host=$host UTC=$(date -u +%FT%TZ) ==="
+            curl -sS -o /dev/null --max-time 20 -w 'HTTP %{http_code}\n' "https://$host/poll" || true
+          done
+          echo "=== Poll control UTC end: $(date -u +%FT%TZ) ==="
+
       - name: Inspect tracked repository paths (read-only)
         uses: actions/checkout@v4
       - name: List deployment configuration candidates
